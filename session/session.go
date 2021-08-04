@@ -62,6 +62,7 @@ func (t *TtsSession) Join(discord *discordgo.Session, callerUserID, textChannelI
 		}
 	}
 	if callUserVoiceState == nil {
+		t.TextChanelID = textChannelID
 		t.SendMessage(discord, "呼び出し者がVCに入ってないため入れませんでした")
 		return fmt.Errorf("caller is not in voice-chat")
 	}
