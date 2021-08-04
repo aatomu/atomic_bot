@@ -7,11 +7,11 @@ Golangで自分のために作成
   
 ## -botｺﾏﾝﾄﾞ-  
 ### TTS関連  
- * "<prefix> join" : VCに接続します  
- * "<prefix> speed" <speech speed>: 読み上げ速度を設定します  
- * "<prefix> lang" <language code || auto>: 読み上げる言語を変更します  
- * "<prefix> limit" <speech limit>: 読み上げる文字数の上限を設定します  
- * "<prefix> leave" : VCから切断します  
+ * "<\prefix> join" : VCに接続します  
+ * "<\prefix> speed <speech speed>": 読み上げ速度を設定します  
+ * "<\prefix> lang <language code || auto>": 読み上げる言語を変更します  
+ * "<\prefix> limit <speech limit>": 読み上げる文字数の上限を設定します  
+ * "<\prefix> leave" : VCから切断します  
   
 ### Text関連  
  * comming soon...
@@ -24,4 +24,5 @@ Golangで自分のために作成
 
 ## コード元:  
 Bot Souce Code : https://github.com/takanakahiko/discord-tts  
-Bot API Code   : https://github.com/bwmarrin/discordgo
+Bot API Code   : https://github.com/bwmarrin/discordgo  
+Bot Language   : https://golang.org/  
