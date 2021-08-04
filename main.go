@@ -55,10 +55,6 @@ func main() {
 }
 
 func botName() string {
-	// if prefix is "", you can call by mention
-	if *prefix == "mention" {
-		return "<@" + clientID + ">"
-	}
 	return *prefix
 }
 
