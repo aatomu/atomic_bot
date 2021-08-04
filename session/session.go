@@ -87,7 +87,7 @@ func (t *TtsSession) SendMessage(discord *discordgo.Session, format string, v ..
 		log.Println("Error sending message: TextChanelID is not set")
 	}
 	msg := fmt.Sprintf(format, v...)
-	_, err := discord.ChannelMessageSend(t.TextChanelID, "[BOT] "+msg)
+	_, err := discord.ChannelMessageSend(t.TextChanelID, msg)
 	log.Println(">>> " + msg)
 	if err != nil {
 		log.Println("Error sending message: ", err)

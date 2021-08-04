@@ -54,12 +54,9 @@ func main() {
 	<-sc
 }
 
-func botName() string {
-	return *prefix
-}
-
 func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 	clientID = discord.State.User.ID
+	discord.UpdateStatus(0,*prefix+" help")
 }
 
 //event by message
@@ -76,16 +73,21 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		log.Println(err)
 		return
 	}
+	//logのやつ
+	log.Println("server:\""+guild.Name+"\"    ch:"+discordChannel.Name+"    user:"+m.Author.Username+"    message:"+m.Content)
 
-	log.Printf("server:\"%s\"    ch:%s    user:%s    message:%s", guild.Name, discordChannel.Name, m.Author.Username, m.Content)
-
-	// bot check
+	//bot 読み上げ無し のチェック
 	if m.Author.Bot || strings.HasPrefix(m.Content, ";") {
 		return
 	}
 
+	if PrefixCheck(m.Content, "help") {
+		discord.ChannelMessageSend(m.ChannelID, "\n使用可能コマンド:\n"+*prefix+" join : VCに接続します\n"+*prefix+" speed <speech speed> : 読み上げ速度を変更します\n"+*prefix+" lang <language code> : 読み上げ言語を変更します\n"+*prefix+" limit <speech limit> : 読み上げ文字数の上限を設定します\n"+*prefix+" leave : VCから切断します")
+		return
+	}
+
 	// "join" command
-	if isCommandMessage(m.Content, "join") {
+	if PrefixCheck(m.Content, "join") {
 		_, err := sessionManager.GetByGuidID(m.GuildID)
 		if err != nil && err != session.ErrTtsSessionNotFound {
 			log.Println(err)
@@ -123,7 +125,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// other commands
 	switch {
-	case isCommandMessage(m.Content, "leave"):
+	case PrefixCheck(m.Content, "leave"):
 		if err := ttsSession.Leave(discord); err != nil {
 			logger.PrintError(err)
 		}
@@ -131,8 +133,8 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			logger.PrintError(err)
 		}
 		return
-	case isCommandMessage(m.Content, "speed"):
-		speedStr := strings.Replace(m.Content, botName()+" speed ", "", 1)
+	case PrefixCheck(m.Content, "speed"):
+		speedStr := strings.Replace(m.Content, *prefix+" speed ", "", 1)
 		newSpeed, err := strconv.ParseFloat(speedStr, 64)
 		if err != nil {
 			ttsSession.SendMessage(discord, "数字ではない値は設定できません")
@@ -142,14 +144,14 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			logger.PrintError(err)
 		}
 		return
-	case isCommandMessage(m.Content, "lang"):
-		newLang := strings.Replace(m.Content, botName()+" lang ", "", 1)
+	case PrefixCheck(m.Content, "lang"):
+		newLang := strings.Replace(m.Content, *prefix+" lang ", "", 1)
 		if err = ttsSession.SetLanguage(discord, newLang); err != nil {
 			logger.PrintError(err)
 		}
 		return
-	case isCommandMessage(m.Content, "limit"):
-		LimitStr := strings.Replace(m.Content, botName()+" limit ", "", 1)
+	case PrefixCheck(m.Content, "limit"):
+		LimitStr := strings.Replace(m.Content, *prefix+" limit ", "", 1)
 		newLimit, err := strconv.Atoi(LimitStr)
 		if err != nil {
 			ttsSession.SendMessage(discord, "数字ではない値は設定できません")
@@ -158,9 +160,6 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		if err = ttsSession.SetSpeechLimit(discord, newLimit); err != nil {
 			logger.PrintError(err)
 		}
-		return
-	case isCommandMessage(m.Content, ""):
-		ttsSession.SendMessage(discord, "\n不明なコマンドです\n使用可能コマンド:\n%s join\n%s speed <speech speed>\n%s lang <language code>\n%s limit <speech limit>\n%s leave", botName(), botName(), botName(), botName(), botName())
 		return
 	}
 
@@ -202,8 +201,8 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 	}
 }
 
-func isCommandMessage(message, command string) bool {
-	return strings.HasPrefix(message, botName()+" "+command)
+func PrefixCheck(message, command string) bool {
+	return strings.HasPrefix(message, *prefix+" "+command)
 }
 
 func sendMessage(discord *discordgo.Session, textChanelID, format string, v ...interface{}) {
