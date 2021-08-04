@@ -105,6 +105,13 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		if err = sessionManager.Add(ttsSession); err != nil {
 			logger.PrintError(err)
 		}
+/*
+			err = discordgo.MessageReactionAdd(m.ChannelID , m.Message.ID , "\u2705")
+			if err != nil && err != session.ErrTtsSessionNotFound {
+				log.Println(err)
+				return
+			}
+*/
 		return
 	}
 
