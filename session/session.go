@@ -78,7 +78,6 @@ func (t *TtsSession) Join(discord *discordgo.Session, callerUserID, textChannelI
 	t.VoiceConnection = voiceConnection
 	t.TextChanelID = textChannelID
 	t.guildID = voiceConnection.GuildID
-	t.SendMessage(discord, "おはよう!")
 	t.Speech(discord, "おはー")
 	return nil
 }
@@ -142,7 +141,6 @@ func (t *TtsSession) Leave(discord *discordgo.Session) error {
 	if err != nil {
 		return fmt.Errorf("t.VoiceConnection.Disconnect() fail: %w", err)
 	}
-	t.SendMessage(discord, "Good bye!")
 	t.VoiceConnection = nil
 	t.TextChanelID = ""
 	return nil
@@ -155,7 +153,6 @@ func (t *TtsSession) SetSpeechSpeed(discord *discordgo.Session, newSpeechSpeed f
 		return fmt.Errorf("newSpeechSpeed=%v is invalid", newSpeechSpeed)
 	}
 	t.speechSpeed = newSpeechSpeed
-	t.SendMessage(discord, "読み上げ速度を%sにしました", strconv.FormatFloat(newSpeechSpeed, 'f', -1, 64))
 	return nil
 }
 
@@ -173,7 +170,6 @@ func (t *TtsSession) SetLanguage(discord *discordgo.Session, lang string) error 
 			return fmt.Errorf("Language.Parse() fail: %w", err)
 	}
 	t.speechLanguage = lang
-	t.SendMessage(discord, "言語を%sに変更しました", lang)
 	return nil
 }
 
@@ -184,7 +180,6 @@ func (t *TtsSession) SetSpeechLimit(discord *discordgo.Session, newSpeechLimit i
 		return fmt.Errorf("newSpeechSpeed=%v is invalid", newSpeechLimit)
 	}
 	t.speechlimit = newSpeechLimit
-	t.SendMessage(discord, "%s文字に制限を変更しました", strconv.Itoa(newSpeechLimit))
 	return nil
 }
 
