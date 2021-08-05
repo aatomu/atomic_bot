@@ -99,6 +99,9 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		ttsSession := session.NewTtsSession()
 		if err := ttsSession.Join(discord, m.Author.ID, m.ChannelID); err != nil {
+			if err := discord.MessageReactionAdd(m.ChannelID,m.ID,"❌"); err!= nil {
+				log.Println(err)
+			}	
 			log.Println(err)
 			return
 		}
@@ -148,6 +151,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		if err = ttsSession.SetSpeechSpeed(discord, newSpeed); err != nil {
 			log.Println(err)
+			return
 		}
 		if err := discord.MessageReactionAdd(m.ChannelID,m.ID,"🔊"); err!= nil {
 			log.Println(err)
@@ -156,7 +160,11 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	case PrefixCheck(m.Content, "lang"):
 		newLang := strings.Replace(m.Content, *prefix+" lang ", "", 1)
 		if err = ttsSession.SetLanguage(discord, newLang); err != nil {
+			if err := discord.MessageReactionAdd(m.ChannelID,m.ID,"❌"); err!= nil {
+				log.Println(err)
+			}	
 			log.Println(err)
+			return
 		}
 		if err := discord.MessageReactionAdd(m.ChannelID,m.ID,"🗣️"); err!= nil {
 			log.Println(err)
@@ -170,9 +178,13 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 		if err = ttsSession.SetSpeechLimit(discord, newLimit); err != nil {
+			if err := discord.MessageReactionAdd(m.ChannelID,m.ID,"❌"); err!= nil {
+				log.Println(err)
+			}	
 			log.Println(err)
+			return
 		}
-		if err := discord.MessageReactionAdd(m.ChannelID,m.ID,"🚫"); err!= nil {
+		if err := discord.MessageReactionAdd(m.ChannelID,m.ID,"🥺"); err!= nil {
 			log.Println(err)
 		}
 		return

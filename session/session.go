@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/url"
 	"regexp"
-	"strconv"
 	"sync"
 	"time"
 
@@ -62,8 +61,6 @@ func (t *TtsSession) Join(discord *discordgo.Session, callerUserID, textChannelI
 		}
 	}
 	if callUserVoiceState == nil {
-		t.TextChanelID = textChannelID
-		t.SendMessage(discord, "呼び出し者がVCに入ってないため入れませんでした")
 		return fmt.Errorf("caller is not in voice-chat")
 	}
 
@@ -160,7 +157,6 @@ func (t *TtsSession) SetSpeechSpeed(discord *discordgo.Session, newSpeechSpeed f
 func (t *TtsSession) SetLanguage(discord *discordgo.Session, lang string) error {
 	if lang == "auto" {
 		t.speechLanguage = lang
-		t.SendMessage(discord, "読み上げ言語を自動にしました")
 		return nil
 	}
 
@@ -175,8 +171,7 @@ func (t *TtsSession) SetLanguage(discord *discordgo.Session, lang string) error 
 
 // SetSpeechLimit
 func (t *TtsSession) SetSpeechLimit(discord *discordgo.Session, newSpeechLimit int) error {
-	if newSpeechLimit < 0 {
-		t.SendMessage(discord, "数値が設定できませんでした")
+	if newSpeechLimit <= 0 {
 		return fmt.Errorf("newSpeechSpeed=%v is invalid", newSpeechLimit)
 	}
 	t.speechlimit = newSpeechLimit
