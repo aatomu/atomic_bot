@@ -94,7 +94,8 @@ func (t *TtsSession) SendMessage(discord *discordgo.Session, format string, v ..
 
 // Speech speech the received text on the voice channel
 func (t *TtsSession) Speech(discord *discordgo.Session, text string) error {
-	if regexp.MustCompile(`<a:|<@|<#|<@&|http|` + "```").MatchString(text) {
+
+	if regexp.MustCompile(`<a:|<:|<@|<#|<@&|http|` + "```").MatchString(text) {
 		text = "message skip"
 		return fmt.Errorf("text is emoji, mention channel, group mention or url")
 	}
@@ -119,6 +120,7 @@ func (t *TtsSession) Speech(discord *discordgo.Session, text string) error {
 		text = rep.ReplaceAllString(text, "")
 	}
 
+	//読み上げ待機
 	t.mut.Lock()
 	defer t.mut.Unlock()
 
