@@ -264,9 +264,6 @@ func Prefix(message, check string) bool {
 	return strings.HasPrefix(message, *prefix+" "+check)
 }
 
-func JoinCheck() {
-}
-
 func Join(ChannelID string, GuildID string, discord *discordgo.Session, AuthorID string, Message string) {
 	if voiceConection, err := joinUserVoiceChannel(discord, AuthorID); err != nil {
 		log.Println("missing join vc")
@@ -399,7 +396,7 @@ func playAudioFile(session *SessionData, filename string) error {
 }
 
 func Speed(session *SessionData, Content string, discord *discordgo.Session, ChannelID string, Message string) {
-	tmp := strings.Replace(Content, *prefix+" sspeed ", "", 1)
+	tmp := strings.Replace(Content, *prefix+" speed ", "", 1)
 
 	tmp_speed, err := strconv.ParseFloat(tmp, 64)
 	if err != nil {
@@ -426,7 +423,7 @@ func Speed(session *SessionData, Content string, discord *discordgo.Session, Cha
 }
 
 func Lang(session *SessionData, Content string, discord *discordgo.Session, ChannelID string, Message string) {
-	tmp := strings.Replace(Content, *prefix+" llang ", "", 1)
+	tmp := strings.Replace(Content, *prefix+" lang ", "", 1)
 
 	if tmp == "auto" {
 		session.speech_lang = "auto"
@@ -450,7 +447,7 @@ func Lang(session *SessionData, Content string, discord *discordgo.Session, Chan
 }
 
 func Limit(session *SessionData, Content string, discord *discordgo.Session, ChannelID string, Message string) {
-	tmp := strings.Replace(Content, *prefix+" llimit ", "", 1)
+	tmp := strings.Replace(Content, *prefix+" limit ", "", 1)
 
 	tmp_limit, err := strconv.Atoi(tmp)
 	if err != nil {
@@ -476,9 +473,17 @@ func Limit(session *SessionData, Content string, discord *discordgo.Session, Cha
 }
 
 func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID string, Message string) {
-	tmp := strings.Replace(Content, *prefix+" wword ", "", 1)
+	tmp := strings.Replace(Content, *prefix+" word ", "", 1)
 
-	if file, err := os.OpenFile("./dic/"+GuildID+".txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777); err != nil {
+	if strings.Contains(tmp, ",") == false {
+		log.Println("unknown word")
+		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
+			log.Println(err)
+		}
+		return
+	}
+
+	if file, err := os.OpenFile("./dic/"+GuildID+".txt", os.O_RDWR|os.O_CREATE, 0777); err != nil {
 		//エラー処理
 		log.Println("missing writing")
 		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
@@ -525,6 +530,14 @@ func Leave(session *SessionData, discord *discordgo.Session, ChannelID string, M
 }
 
 func Poll(Content string, Author string, discord *discordgo.Session, ChannelID string, Message string) {
+	if strings.Contains(Content, ",") == false {
+		log.Println("unknown word")
+		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
+			log.Println(err)
+		}
+		return
+	}
+
 	//長さ確認
 	replace := regexp.MustCompile(*prefix + " poll|,$")
 	poll := replace.ReplaceAllString(Content, "")
@@ -583,6 +596,7 @@ func Help(discord *discordgo.Session, ChannelID string) {
 		*prefix + " join :VCに参加します\n" +
 		*prefix + " speed <速度> : 読み上げ速度を変更します\n" +
 		*prefix + " lang <言語> : 読み上げ言語を変更します\n" +
+		*prefix + " word <元>,<先> : 辞書を登録します\n" +
 		*prefix + " limit <文字数> : 読み上げ文字数の上限を設定します\n" +
 		*prefix + " leave : VCから切断します\n" +
 		"--Poll--\n" +

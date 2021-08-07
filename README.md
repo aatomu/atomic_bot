@@ -13,11 +13,8 @@ Golangで自分のために作成
 `<prefix> limit <speech limit>` : 読み上げる文字数の上限を設定します  
 `<prefix> leave` : VCから切断します  
   
-### Text関連  
- * comming soon...
-  
 ### Poll関連  
- * comming soon...
+ `!tom poll <質問>,<回答1>,<回答2>...` : 質問を作成します
   
 ### Role関連  
  * comming soon...
