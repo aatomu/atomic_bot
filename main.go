@@ -177,7 +177,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	switch {
 	//TTS関連
-	case Prefix(Content, "jjoin"):
+	case Prefix(Content, "join"):
 		if _, err := GetByGuildID(GuildID); err == nil {
 			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
 				log.Println(err)
@@ -186,7 +186,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		Join(ChannelID, GuildID, discord, AuthorID, Message)
 		return
-	case Prefix(Content, "sspeed "):
+	case Prefix(Content, "speed "):
 		session, err := GetByGuildID(GuildID)
 		if err != nil || session.channelID != ChannelID {
 			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
@@ -196,7 +196,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		Speed(session, Content, discord, ChannelID, Message)
 		return
-	case Prefix(Content, "llang "):
+	case Prefix(Content, "lang "):
 		session, err := GetByGuildID(GuildID)
 		if err != nil || session.channelID != ChannelID {
 			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
@@ -206,7 +206,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		Lang(session, Content, discord, ChannelID, Message)
 		return
-	case Prefix(Content, "llimit "):
+	case Prefix(Content, "limit "):
 		session, err := GetByGuildID(GuildID)
 		if err != nil || session.channelID != ChannelID {
 			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
@@ -216,7 +216,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		Limit(session, Content, discord, ChannelID, Message)
 		return
-	case Prefix(Content, "wword "):
+	case Prefix(Content, "word "):
 		session, err := GetByGuildID(GuildID)
 		if err != nil || session.channelID != ChannelID {
 			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
@@ -226,7 +226,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		Word(Content, GuildID, discord, ChannelID, Message)
 		return
-	case Prefix(Content, "lleave"):
+	case Prefix(Content, "leave"):
 		session, err := GetByGuildID(GuildID)
 		if err != nil || session.channelID != ChannelID {
 			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
