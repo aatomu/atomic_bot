@@ -483,7 +483,7 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 		return
 	}
 
-	if file, err := os.OpenFile("./dic/"+GuildID+".txt", os.O_RDWR|os.O_CREATE, 0777); err != nil {
+	if file, err := os.OpenFile("./dic/"+GuildID+".txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777); err != nil {
 		//エラー処理
 		log.Println("missing writing")
 		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
