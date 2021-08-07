@@ -1,3 +1,6 @@
 #shell script
 *.sh
+#VScode History
 .history
+#./dic(辞書)
+*.txt
