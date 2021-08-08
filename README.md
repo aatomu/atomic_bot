@@ -19,7 +19,7 @@ Golangで自分のために作成
   
 ### Role関連  
 `!tom role <名前>,@<ロール1>,@<ロール2>...` : ロール管理を作成します  
-  *RoleControllerという名前のロールがついている必要があります
+> *RoleControllerという名前のロールがついている必要があります
 
 ## コード元:  
 Bot Souce Code : https://github.com/takanakahiko/discord-tts  
