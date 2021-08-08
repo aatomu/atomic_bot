@@ -62,6 +62,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"time"
 
@@ -219,13 +220,6 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		Limit(session, Content, discord, ChannelID, Message)
 		return
 	case Prefix(Content, "word "):
-		session, err := GetByGuildID(GuildID)
-		if err != nil || session.channelID != ChannelID {
-			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-				log.Println(err)
-			}
-			return
-		}
 		Word(Content, GuildID, discord, ChannelID, Message)
 		return
 	case Prefix(Content, "leave"):
@@ -492,7 +486,7 @@ func Limit(session *SessionData, Content string, discord *discordgo.Session, Cha
 func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID string, Message string) {
 	tmp := strings.Replace(Content, *prefix+" word ", "", 1)
 
-	if strings.Contains(tmp, ",") == false {
+	if strings.Count(tmp, ",") != 1 {
 		log.Println("unknown word")
 		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
 			log.Println(err)
@@ -500,21 +494,49 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 		return
 	}
 
-	if file, err := os.OpenFile("./dic/"+GuildID+".txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777); err != nil {
-		//エラー処理
-		log.Println("missing writing")
+	//ファイルがあるか確認
+	_, err := os.Stat("./dic/" + GuildID + ".txt")
+	//ファイルがなかったら作成
+	if os.IsNotExist(err) {
+		_, err = os.Create("./dic/" + GuildID + ".txt")
+		if err != nil {
+			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
+				log.Println(err)
+			}
+		}
+		return
+	}
+
+	//読み込み
+	text_tmp, err := ioutil.ReadFile("./dic/" + GuildID + ".txt")
+	if err != nil {
 		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
 			log.Println(err)
 		}
 		return
-	} else {
-		defer file.Close()
-		fmt.Fprintln(file, tmp)
-		if err := discord.MessageReactionAdd(ChannelID, Message, "📄"); err != nil {
+	}
+
+	//textをにダブりがないかを確認&置換
+	text := string(text_tmp)
+	replace := regexp.MustCompile(`,.*`)
+	check := replace.ReplaceAllString(tmp, "")
+	if strings.Contains(text, check) {
+		replace := regexp.MustCompile(`.*` + check + `,.*\n`)
+		text = replace.ReplaceAllString(text, "")
+	}
+	text = text + tmp + "\n"
+	//書き込み
+	err = ioutil.WriteFile("./dic/"+GuildID+".txt", []byte(text), 0777)
+	if err != nil {
+		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
 			log.Println(err)
 		}
 		return
 	}
+	if err := discord.MessageReactionAdd(ChannelID, Message, "📄"); err != nil {
+		log.Println(err)
+	}
+	return
 }
 
 func Leave(session *SessionData, discord *discordgo.Session, ChannelID string, Message string, Reaction bool) {
