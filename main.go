@@ -125,6 +125,8 @@ func main() {
 	discord.AddHandler(onReady)
 	discord.AddHandler(onMessageCreate)
 	discord.AddHandler(onVoiceStateUpdate)
+	discord.AddHandler(onMessageReactionAdd)
+	discord.AddHandler(onMessageReactionRemove)
 
 	//起動
 	if err = discord.Open(); err != nil {
@@ -168,7 +170,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	AuthorID := m.Author.ID
 
 	//表示
-	log.Print("Guild:\"" + Guild + "\"  Channel:\"" + Channel.Name + "\"  " + Author + ": " + strings.Replace(Content, "\n", " \\n ", -1))
+	log.Print("Guild:\"" + Guild + "\"  Channel:\"" + Channel.Name + "\"  " + Author + ": " + Content)
 
 	//bot 読み上げ無し のチェック
 	if m.Author.Bot || strings.HasPrefix(m.Content, ";") {
@@ -242,7 +244,22 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	//Role関連
 	case Prefix(Content, "role "):
-		log.Print("role")
+		//ロールを持ってるか確認
+		roleCheck, _ := discord.GuildMember(GuildID, AuthorID)
+		roleList, _ := discord.GuildRoles(GuildID)
+		for _, role := range roleList {
+			if strings.Contains(role.Name, "RoleController") {
+				for _, roleHave := range roleCheck.Roles {
+					if roleHave == role.ID {
+						Role(Content, Author, discord, ChannelID, Message)
+						return
+					}
+				}
+			}
+		}
+		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
+			log.Println(err)
+		}
 		return
 	//help
 	case Prefix(Content, "help"):
@@ -530,6 +547,7 @@ func Leave(session *SessionData, discord *discordgo.Session, ChannelID string, M
 }
 
 func Poll(Content string, Author string, discord *discordgo.Session, ChannelID string, Message string) {
+	//複数?あるか確認
 	if strings.Contains(Content, ",") == false {
 		log.Println("unknown word")
 		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
@@ -552,6 +570,73 @@ func Poll(Content string, Author string, discord *discordgo.Session, ChannelID s
 			Type:        "rich",
 			Title:       "",
 			Description: "",
+			Color:       1000,
+			Footer:      &discordgo.MessageEmbedFooter{Text: "Poller"},
+			Author:      &discordgo.MessageEmbedAuthor{Name: ""},
+		}
+		//作成者表示
+		embed.Author.Name = "create by @" + Author
+		//Titleの設定
+		embed.Title = text[0]
+		//中身の設定
+		Question := ""
+		for i := 1; i < len(text); i++ {
+			Question = Question + alphabet[i] + " : " + text[i] + "\n"
+		}
+		embed.Description = Question
+		//送信
+		message, err := discord.ChannelMessageSendEmbed(ChannelID, embed)
+		if err != nil {
+			log.Println(err)
+		}
+		//リアクションと中身の設定
+		for i := 1; i < len(text); i++ {
+			Question = Question + alphabet[i] + text[i] + "\n"
+			if err := discord.MessageReactionAdd(ChannelID, message.ID, alphabet[i]); err != nil {
+				log.Println(err)
+			}
+		}
+	} else {
+		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
+			log.Println(err)
+		}
+	}
+}
+
+func Role(Content string, Author string, discord *discordgo.Session, ChannelID string, Message string) {
+	//複数?あるか確認
+	if strings.Contains(Content, ",") == false {
+		log.Println("unknown word")
+		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
+			log.Println(err)
+		}
+		return
+	}
+
+	//roleが指定されてるか確認
+	if strings.Contains(Content, "<@&") == false {
+		log.Println("unknown command")
+		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
+			log.Println(err)
+		}
+		return
+	}
+
+	//長さ確認
+	replace := regexp.MustCompile(*prefix + " role|,$")
+	role := replace.ReplaceAllString(Content, "")
+	text := strings.Split(role, ",")
+	//Title+Questionだから-1
+	length := len(text) - 1
+	if length <= 20 {
+		//embedとかreaction用のやつ
+		alphabet := []string{"", "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮", "🇯", "🇰", "🇱", "🇲", "🇳", "🇴", "🇵", "🇶", "🇷", "🇸", "🇹"}
+		//embedのtmp作成
+		embed := &discordgo.MessageEmbed{
+			Type:        "rich",
+			Title:       "",
+			Description: "",
+			Footer:      &discordgo.MessageEmbedFooter{Text: "RoleContoler"},
 			Color:       1000,
 			Author:      &discordgo.MessageEmbedAuthor{Name: ""},
 		}
@@ -600,7 +685,9 @@ func Help(discord *discordgo.Session, ChannelID string) {
 		*prefix + " limit <文字数> : 読み上げ文字数の上限を設定します\n" +
 		*prefix + " leave : VCから切断します\n" +
 		"--Poll--\n" +
-		*prefix + " poll <質問>,<回答1>,<回答2>... : 質問を作成します\n"
+		*prefix + " poll <質問>,<回答1>,<回答2>... : 質問を作成します\n" +
+		"--Role--\n" +
+		*prefix + " role <名前>,@<ロール1>,@<ロール2>... : ロール管理を作成します\n  *RoleControllerという名前のロールがついている必要があります"
 	embed.Description = Text
 	//送信
 	if _, err := discord.ChannelMessageSendEmbed(ChannelID, embed); err != nil {
@@ -626,5 +713,133 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 			return
 		}
 		Leave(session, discord, "", "", false)
+	}
+}
+
+//リアクション追加でCall
+func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.MessageReactionAdd) {
+	//変数定義
+	UserID := reaction.UserID
+	User_tmp, _ := discord.User(UserID)
+	User := User_tmp.Username
+	Emoji := reaction.Emoji.Name
+	ChannelID := reaction.ChannelID
+	Channel, _ := discord.Channel(ChannelID)
+	MessageID := reaction.MessageID
+	Message_tmp, _ := discord.ChannelMessage(ChannelID, MessageID)
+	Message := Message_tmp.Content
+	GuildID := reaction.GuildID
+	Guild_tmp, _ := discord.Guild(GuildID)
+	Guild := Guild_tmp.Name
+
+	//bot のチェック
+	botCheck, _ := discord.User(UserID)
+	if botCheck.Bot {
+		return
+	}
+
+	//改行あとを削除
+	if strings.Contains(Message, "\n") {
+		replace := regexp.MustCompile(`\n.*`)
+		Message = replace.ReplaceAllString(Message, "..")
+	}
+
+	//ログを表示
+	log.Print("Guild:\"" + Guild + "\"  Channel:\"" + Channel.Name + "\"  Message:" + Message + "  User:" + User + "  Add:" + Emoji)
+
+	//複配列をstringに変換
+	message, _ := discord.ChannelMessage(ChannelID, MessageID)
+	text := ""
+	for _, embed := range message.Embeds {
+		text = text + embed.Description
+	}
+
+	//stringを配列にして1個ずつ処理
+	for _, embed := range strings.Split(text, "\n") {
+		//ロール追加
+		if strings.HasPrefix(embed, Emoji) {
+			replace := regexp.MustCompile(`[^0-9]`)
+			RoleID := replace.ReplaceAllString(embed, "")
+			err := discord.GuildMemberRoleAdd(GuildID, UserID, RoleID)
+			//失敗時メッセージ出す
+			if err != nil {
+				log.Print(err)
+				//embedのtmp作成
+				embed := &discordgo.MessageEmbed{
+					Type:        "rich",
+					Description: "えらー : 追加できませんでした",
+					Color:       1000,
+				}
+				//送信
+				if _, err := discord.ChannelMessageSendEmbed(ChannelID, embed); err != nil {
+					log.Println(err)
+				}
+			}
+			return
+		}
+	}
+}
+
+//リアクション削除でCall
+func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.MessageReactionRemove) {
+	//変数定義
+	UserID := reaction.UserID
+	User_tmp, _ := discord.User(UserID)
+	User := User_tmp.Username
+	Emoji := reaction.Emoji.Name
+	ChannelID := reaction.ChannelID
+	Channel, _ := discord.Channel(ChannelID)
+	MessageID := reaction.MessageID
+	Message_tmp, _ := discord.ChannelMessage(ChannelID, MessageID)
+	Message := Message_tmp.Content
+	GuildID := reaction.GuildID
+	Guild_tmp, _ := discord.Guild(GuildID)
+	Guild := Guild_tmp.Name
+
+	//bot のチェック
+	botCheck, _ := discord.User(UserID)
+	if botCheck.Bot {
+		return
+	}
+
+	//改行あとを削除
+	if strings.Contains(Message, "\n") {
+		replace := regexp.MustCompile(`\n.*`)
+		Message = replace.ReplaceAllString(Message, "..")
+	}
+
+	//ログを表示
+	log.Print("Guild:\"" + Guild + "\"  Channel:\"" + Channel.Name + "\"  Message:" + Message + "  User:" + User + "  Remove:" + Emoji)
+
+	//複配列をstringに変換
+	message, _ := discord.ChannelMessage(ChannelID, MessageID)
+	text := ""
+	for _, embed := range message.Embeds {
+		text = text + embed.Description
+	}
+
+	//stringを配列にして1個ずつ処理
+	for _, embed := range strings.Split(text, "\n") {
+		//ロール追加
+		if strings.HasPrefix(embed, Emoji) {
+			replace := regexp.MustCompile(`[^0-9]`)
+			RoleID := replace.ReplaceAllString(embed, "")
+			err := discord.GuildMemberRoleRemove(GuildID, UserID, RoleID)
+			//失敗時メッセージ出す
+			if err != nil {
+				log.Print(err)
+				//embedのtmp作成
+				embed := &discordgo.MessageEmbed{
+					Type:        "rich",
+					Description: "えらー : 削除できませんでした",
+					Color:       1000,
+				}
+				//送信
+				if _, err := discord.ChannelMessageSendEmbed(ChannelID, embed); err != nil {
+					log.Println(err)
+				}
+			}
+			return
+		}
 	}
 }
