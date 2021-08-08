@@ -17,7 +17,8 @@ Golangで自分のために作成
  `!tom poll <質問>,<回答1>,<回答2>...` : 質問を作成します
   
 ### Role関連  
- * comming soon...
+`!tom role <名前>,@<ロール1>,@<ロール2>...` : ロール管理を作成します
+  *RoleControllerという名前のロールがついている必要があります
 
 ## コード元:  
 Bot Souce Code : https://github.com/takanakahiko/discord-tts  
