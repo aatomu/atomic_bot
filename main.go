@@ -494,11 +494,13 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 		return
 	}
 
+	//ファイルの指定
+	fileName := "./dic/" + GuildID + ".txt"
 	//ファイルがあるか確認
-	_, err := os.Stat("./dic/" + GuildID + ".txt")
+	_, err := os.Stat(fileName)
 	//ファイルがなかったら作成
 	if os.IsNotExist(err) {
-		_, err = os.Create("./dic/" + GuildID + ".txt")
+		_, err = os.Create(fileName)
 		if err != nil {
 			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
 				log.Println(err)
@@ -508,7 +510,7 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 	}
 
 	//読み込み
-	text_tmp, err := ioutil.ReadFile("./dic/" + GuildID + ".txt")
+	text_tmp, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
 			log.Println(err)
@@ -526,7 +528,7 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 	}
 	text = text + tmp + "\n"
 	//書き込み
-	err = ioutil.WriteFile("./dic/"+GuildID+".txt", []byte(text), 0777)
+	err = ioutil.WriteFile(fileName, []byte(text), 0777)
 	if err != nil {
 		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
 			log.Println(err)
