@@ -472,7 +472,7 @@ func Lang(UserID string, session *SessionData, Content string, discord *discordg
 func Config(UserID string, UserLang string, UserSpeed float64) (string, float64, error) {
 	//BOTチェック
 	if UserID == "BOT" {
-		return "ja", 1.5, nil
+		return "ja", 1.75, nil
 	}
 
 	//ファイルパスの指定
