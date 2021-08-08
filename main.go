@@ -81,13 +81,13 @@ import (
 )
 
 type SessionData struct {
-	guildID      string
-	channelID    string
-	vcsession    *discordgo.VoiceConnection
-	speech_speed float64
-	speech_limit int
-	speech_lang  string
-	mut          sync.Mutex
+	guildID     string
+	channelID   string
+	vcsession   *discordgo.VoiceConnection
+	speechSpeed float64
+	speechLimit int
+	speechLang  string
+	mut         sync.Mutex
 }
 
 func GetByGuildID(guildID string) (*SessionData, error) {
@@ -284,13 +284,13 @@ func Join(ChannelID string, GuildID string, discord *discordgo.Session, AuthorID
 		return
 	} else {
 		session := &SessionData{
-			guildID:      GuildID,
-			channelID:    ChannelID,
-			vcsession:    voiceConection,
-			speech_speed: 1.5,
-			speech_limit: 100,
-			speech_lang:  "auto",
-			mut:          sync.Mutex{},
+			guildID:     GuildID,
+			channelID:   ChannelID,
+			vcsession:   voiceConection,
+			speechSpeed: 1.5,
+			speechLimit: 100,
+			speechLang:  "auto",
+			mut:         sync.Mutex{},
 		}
 		sessions = append(sessions, session)
 		if err := discord.MessageReactionAdd(ChannelID, Message, "✅"); err != nil {
@@ -299,6 +299,22 @@ func Join(ChannelID string, GuildID string, discord *discordgo.Session, AuthorID
 		Speech(session, "おはー")
 		return
 	}
+}
+
+func joinUserVoiceChannel(discord *discordgo.Session, userID string) (*discordgo.VoiceConnection, error) {
+	vs := findUserVoiceState(discord, userID)
+	return discord.ChannelVoiceJoin(vs.GuildID, vs.ChannelID, false, true)
+}
+
+func findUserVoiceState(discord *discordgo.Session, userid string) *discordgo.VoiceState {
+	for _, guild := range discord.State.Guilds {
+		for _, vs := range guild.VoiceStates {
+			if vs.UserID == userid {
+				return vs
+			}
+		}
+	}
+	return nil
 }
 
 func Speech(session *SessionData, text string) {
@@ -321,7 +337,7 @@ func Speech(session *SessionData, text string) {
 		return
 	}
 
-	lang := session.speech_lang
+	lang := session.speechLang
 	if lang == "auto" {
 		lang = "ja"
 		if regexp.MustCompile(`^[a-zA-Z0-9\s.,]+$`).MatchString(text) {
@@ -331,8 +347,8 @@ func Speech(session *SessionData, text string) {
 
 	//text cut
 	length := len(text)
-	if length > session.speech_limit {
-		text = string([]rune(text)[:session.speech_limit])
+	if length > session.speechLimit {
+		text = string([]rune(text)[:session.speechLimit])
 	}
 
 	//改行停止
@@ -354,22 +370,6 @@ func Speech(session *SessionData, text string) {
 	return
 }
 
-func joinUserVoiceChannel(discord *discordgo.Session, userID string) (*discordgo.VoiceConnection, error) {
-	vs := findUserVoiceState(discord, userID)
-	return discord.ChannelVoiceJoin(vs.GuildID, vs.ChannelID, false, true)
-}
-
-func findUserVoiceState(discord *discordgo.Session, userid string) *discordgo.VoiceState {
-	for _, guild := range discord.State.Guilds {
-		for _, vs := range guild.VoiceStates {
-			if vs.UserID == userid {
-				return vs
-			}
-		}
-	}
-	return nil
-}
-
 func playAudioFile(session *SessionData, filename string) error {
 	if err := session.vcsession.Speaking(true); err != nil {
 		return err
@@ -380,7 +380,7 @@ func playAudioFile(session *SessionData, filename string) error {
 	opts.CompressionLevel = 0
 	opts.RawOutput = true
 	opts.Bitrate = 120
-	opts.AudioFilter = fmt.Sprintf("atempo=%f", session.speech_speed)
+	opts.AudioFilter = fmt.Sprintf("atempo=%f", session.speechSpeed)
 
 	encodeSession, err := dca.EncodeFile(filename, opts)
 	if err != nil {
@@ -426,7 +426,7 @@ func Speed(session *SessionData, Content string, discord *discordgo.Session, Cha
 		return
 	}
 
-	session.speech_speed = tmp_speed
+	session.speechSpeed = tmp_speed
 	if err := discord.MessageReactionAdd(ChannelID, Message, "🔊"); err != nil {
 		log.Println(err)
 	}
@@ -437,7 +437,7 @@ func Lang(session *SessionData, Content string, discord *discordgo.Session, Chan
 	tmp := strings.Replace(Content, *prefix+" lang ", "", 1)
 
 	if tmp == "auto" {
-		session.speech_lang = "auto"
+		session.speechLang = "auto"
 		return
 	}
 
@@ -450,7 +450,7 @@ func Lang(session *SessionData, Content string, discord *discordgo.Session, Chan
 		return
 	}
 
-	session.speech_lang = tmp
+	session.speechLang = tmp
 	if err := discord.MessageReactionAdd(ChannelID, Message, "🗣️"); err != nil {
 		log.Println(err)
 	}
@@ -476,7 +476,7 @@ func Limit(session *SessionData, Content string, discord *discordgo.Session, Cha
 		}
 		return
 	}
-	session.speech_limit = tmp_limit
+	session.speechLimit = tmp_limit
 	if err := discord.MessageReactionAdd(ChannelID, Message, "🥺"); err != nil {
 		log.Println(err)
 	}
@@ -762,6 +762,14 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 		return
 	}
 
+	//Roleのやつか確認
+	checkFooter, _ := discord.ChannelMessage(ChannelID, MessageID)
+	for _, embed := range checkFooter.Embeds {
+		if !strings.Contains(embed.Footer.Text, "RoleContoler") {
+			return
+		}
+	}
+
 	//改行あとを削除
 	if strings.Contains(Message, "\n") {
 		replace := regexp.MustCompile(`\n.*`)
@@ -824,6 +832,14 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 	botCheck, _ := discord.User(UserID)
 	if botCheck.Bot {
 		return
+	}
+
+	//Roleのやつか確認
+	checkFooter, _ := discord.ChannelMessage(ChannelID, MessageID)
+	for _, embed := range checkFooter.Embeds {
+		if !strings.Contains(embed.Footer.Text, "RoleContoler") {
+			return
+		}
 	}
 
 	//改行あとを削除

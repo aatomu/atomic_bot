@@ -1,6 +1,6 @@
 # atomic_bot
 Golangで自分のために作成  
-開発環境:rpi4(8gb) golang(go1.11.6 linux/arm64)  
+開発環境:rpi4(8gb) golang(go1.11.6 linux/arm64) ffmpeg(testing 7:4.1.6-1~deb10u1+rpt2 arm64)  
   
 ## -起動-  
 ```go run main.go -prefix=<prefix> -token=<bot token>```
