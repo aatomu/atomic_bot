@@ -8,7 +8,7 @@ Golangで自分のために作成
 ## -botｺﾏﾝﾄﾞ-  
 ### TTS関連  
 `<prefix> join` : VCに接続します  
-`<prefix> speed <speech speed>` : 読み上げ速度を設定します  
+`<prefix> speed <0.5-5>` : 読み上げ速度を設定します  
 `<prefix> lang <language code || auto>` : 読み上げる言語を変更します  
 `!tom word <from>,<to>` : 辞書を登録します  
 `<prefix> limit <speech limit>` : 読み上げる文字数の上限を設定します  

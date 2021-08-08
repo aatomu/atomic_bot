@@ -197,7 +197,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 			return
 		}
-		Speed(session, Content, discord, ChannelID, Message)
+		Speed(AuthorID, session, Content, discord, ChannelID, Message)
 		return
 	case Prefix(Content, "lang "):
 		session, err := GetByGuildID(GuildID)
@@ -207,7 +207,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 			return
 		}
-		Lang(session, Content, discord, ChannelID, Message)
+		Lang(AuthorID, session, Content, discord, ChannelID, Message)
 		return
 	case Prefix(Content, "limit "):
 		session, err := GetByGuildID(GuildID)
@@ -268,7 +268,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	replace := regexp.MustCompile(*prefix + " once ")
 	text := replace.ReplaceAllString(Content, "")
-	Speech(session, text)
+	Speech(AuthorID, session, text)
 }
 
 func Prefix(message, check string) bool {
@@ -296,7 +296,7 @@ func Join(ChannelID string, GuildID string, discord *discordgo.Session, AuthorID
 		if err := discord.MessageReactionAdd(ChannelID, Message, "✅"); err != nil {
 			log.Println(err)
 		}
-		Speech(session, "おはー")
+		Speech("BOT", session, "おはー")
 		return
 	}
 }
@@ -317,8 +317,7 @@ func findUserVoiceState(discord *discordgo.Session, userid string) *discordgo.Vo
 	return nil
 }
 
-func Speech(session *SessionData, text string) {
-
+func Speech(UserID string, session *SessionData, text string) {
 	data, _ := os.Open("./dic/" + session.guildID + ".txt")
 	defer data.Close()
 	scanner := bufio.NewScanner(data)
@@ -337,7 +336,11 @@ func Speech(session *SessionData, text string) {
 		return
 	}
 
-	lang := session.speechLang
+	lang, speed, err := Config(UserID, "", 0)
+	if err != nil {
+		log.Println(err)
+	}
+
 	if lang == "auto" {
 		lang = "ja"
 		if regexp.MustCompile(`^[a-zA-Z0-9\s.,]+$`).MatchString(text) {
@@ -362,7 +365,7 @@ func Speech(session *SessionData, text string) {
 	defer session.mut.Unlock()
 
 	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=32&client=tw-ob&q=%s&tl=%s", url.QueryEscape(text), lang)
-	err := playAudioFile(session, voiceURL)
+	err = playAudioFile(speed, session, voiceURL)
 	if err != nil {
 		log.Printf("Error:%s voiceURL:%s", err, voiceURL)
 		return
@@ -370,7 +373,7 @@ func Speech(session *SessionData, text string) {
 	return
 }
 
-func playAudioFile(session *SessionData, filename string) error {
+func playAudioFile(UserSpeed float64, session *SessionData, filename string) error {
 	if err := session.vcsession.Speaking(true); err != nil {
 		return err
 	}
@@ -380,7 +383,7 @@ func playAudioFile(session *SessionData, filename string) error {
 	opts.CompressionLevel = 0
 	opts.RawOutput = true
 	opts.Bitrate = 120
-	opts.AudioFilter = fmt.Sprintf("atempo=%f", session.speechSpeed)
+	opts.AudioFilter = fmt.Sprintf("atempo=%f", UserSpeed)
 
 	encodeSession, err := dca.EncodeFile(filename, opts)
 	if err != nil {
@@ -406,7 +409,7 @@ func playAudioFile(session *SessionData, filename string) error {
 	}
 }
 
-func Speed(session *SessionData, Content string, discord *discordgo.Session, ChannelID string, Message string) {
+func Speed(UserID string, session *SessionData, Content string, discord *discordgo.Session, ChannelID string, Message string) {
 	tmp := strings.Replace(Content, *prefix+" speed ", "", 1)
 
 	tmp_speed, err := strconv.ParseFloat(tmp, 64)
@@ -418,7 +421,7 @@ func Speed(session *SessionData, Content string, discord *discordgo.Session, Cha
 		return
 	}
 
-	if tmp_speed < 0.5 || 100 < tmp_speed {
+	if tmp_speed < 0.5 || 5 < tmp_speed {
 		log.Println("missing lowest or highest speed")
 		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
 			log.Println(err)
@@ -426,18 +429,24 @@ func Speed(session *SessionData, Content string, discord *discordgo.Session, Cha
 		return
 	}
 
-	session.speechSpeed = tmp_speed
+	_, _, err = Config(UserID, "", tmp_speed)
+	if err != nil {
+		log.Println(err)
+	}
 	if err := discord.MessageReactionAdd(ChannelID, Message, "🔊"); err != nil {
 		log.Println(err)
 	}
 	return
 }
 
-func Lang(session *SessionData, Content string, discord *discordgo.Session, ChannelID string, Message string) {
+func Lang(UserID string, session *SessionData, Content string, discord *discordgo.Session, ChannelID string, Message string) {
 	tmp := strings.Replace(Content, *prefix+" lang ", "", 1)
 
 	if tmp == "auto" {
-		session.speechLang = "auto"
+		_, _, err := Config(UserID, tmp, 0)
+		if err != nil {
+			log.Println(err)
+		}
 		return
 	}
 
@@ -450,11 +459,101 @@ func Lang(session *SessionData, Content string, discord *discordgo.Session, Chan
 		return
 	}
 
-	session.speechLang = tmp
+	_, _, err = Config(UserID, tmp, 0)
+	if err != nil {
+		log.Println(err)
+	}
 	if err := discord.MessageReactionAdd(ChannelID, Message, "🗣️"); err != nil {
 		log.Println(err)
 	}
 	return
+}
+
+func Config(UserID string, UserLang string, UserSpeed float64) (string, float64, error) {
+	//BOTチェック
+	if UserID == "BOT" {
+		return "ja", 1.5, nil
+	}
+
+	//ファイルパスの指定
+	fileName := "./UserConfig.txt"
+
+	//ファイルがあるか確認
+	_, err := os.Stat(fileName)
+	//ファイルがなかったら作成
+	if os.IsNotExist(err) {
+		_, err = os.Create(fileName)
+		if err != nil {
+			log.Println(err)
+		}
+		return "", 0, fmt.Errorf("missing crate file")
+	}
+
+	//読み込み
+	text_tmp, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		log.Println(err)
+		return "", 0, fmt.Errorf("missing read file")
+	}
+
+	//[]byteをstringに
+	text := string(text_tmp)
+
+	//変数定義
+	langTmp := ""
+	var speedTmp float64
+	speedTmp = 0
+	writeText := ""
+
+	//UserIDからデータを入手
+	for _, lines := range strings.Split(text, "\n") {
+		if strings.Contains(lines, UserID+":") {
+			replace := regexp.MustCompile(UserID + ":")
+			line := replace.ReplaceAllString(lines, "")
+			tmp := strings.Split(line, ",")
+			langTmp = tmp[0]
+			speedTmp, err = strconv.ParseFloat(tmp[1], 64)
+			if err != nil {
+				return "", 0, err
+			}
+		} else {
+			if lines != "" {
+				writeText = writeText + "\n" + lines
+			}
+		}
+	}
+
+	//書き込みチェック用変数
+	Write := false
+	//上書き もしくはデータ作成
+	if UserLang != "" || UserSpeed != 0 {
+		Write = true
+	}
+	if langTmp == "" || Write == true {
+		langTmp = "auto"
+		if UserLang != "" {
+			langTmp = UserLang
+		}
+		Write = true
+	}
+	if speedTmp == 0 || Write == true {
+		speedTmp = 1.0
+		if UserSpeed != 0 {
+			speedTmp = UserSpeed
+		}
+		Write = true
+	}
+	if Write {
+		//最後に書き込むテキストを追加(Write==trueの時)
+		writeText = writeText + "\n" + UserID + ":" + langTmp + "," + strconv.FormatFloat(speedTmp, 'f', -1, 64)
+		//書き込み
+		err = ioutil.WriteFile(fileName, []byte(writeText), 0777)
+		if err != nil {
+			return "", 0, err
+		}
+		log.Println("User Config Write")
+	}
+	return langTmp, speedTmp, nil
 }
 
 func Limit(session *SessionData, Content string, discord *discordgo.Session, ChannelID string, Message string) {
@@ -542,7 +641,7 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 }
 
 func Leave(session *SessionData, discord *discordgo.Session, ChannelID string, Message string, Reaction bool) {
-	Speech(session, "さいなら")
+	Speech("BOT", session, "さいなら")
 
 	if err := session.vcsession.Disconnect(); err != nil {
 		log.Println("missing disconnect")
@@ -703,7 +802,7 @@ func Help(discord *discordgo.Session, ChannelID string) {
 	}
 	Text := "--TTS--\n" +
 		*prefix + " join :VCに参加します\n" +
-		*prefix + " speed <速度> : 読み上げ速度を変更します\n" +
+		*prefix + " speed <0.5-5> : 読み上げ速度を変更します\n" +
 		*prefix + " lang <言語> : 読み上げ言語を変更します\n" +
 		*prefix + " word <元>,<先> : 辞書を登録します\n" +
 		*prefix + " limit <文字数> : 読み上げ文字数の上限を設定します\n" +
