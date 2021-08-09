@@ -551,7 +551,7 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 					return "", 0, 0, fmt.Errorf("Failed change speed string to float")
 				}
 			}
-			if arrayLength >= 3 {
+			if arrayLength > 3 {
 				pitch, err = strconv.ParseFloat(array[2], 64)
 				if err != nil {
 					return "", 0, 0, fmt.Errorf("Failed change pitch string to float")
@@ -596,7 +596,7 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 			pitch = userPitch
 		}
 		//最後に書き込むテキストを追加(Write==trueの時)
-		writeText = writeText + userID + ":" + lang + "," + strconv.FormatFloat(speed, 'f', -1, 64) + "," + strconv.FormatFloat(pitch, 'f', -1, 64)
+		writeText = writeText + userID + ":" + lang + "," + strconv.FormatFloat(speed, 'f', -1, 64) + "," + strconv.FormatFloat(pitch, 'f', -1, 64) + ","
 		//書き込み
 		err = ioutil.WriteFile(fileName, []byte(writeText), 0777)
 		if err != nil {
