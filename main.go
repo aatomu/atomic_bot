@@ -433,6 +433,7 @@ func changeUserSpeed(userID string, message string, discord *discordgo.Session, 
 
 	_, _, _, err = userConfig(userID, "", speed, 0)
 	if err != nil {
+		log.Println(err)
 		log.Println("Failed change speed")
 		addReaction(discord, channelID, messageID, "❌")
 		return
@@ -459,6 +460,7 @@ func changeUserPitch(userID string, message string, discord *discordgo.Session, 
 
 	_, _, _, err = userConfig(userID, "", 0, pitch)
 	if err != nil {
+		log.Println(err)
 		log.Println("Failed change pitch")
 		addReaction(discord, channelID, messageID, "❌")
 		return
@@ -487,6 +489,7 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 
 	_, _, _, err = userConfig(userID, lang, 0, 0)
 	if err != nil {
+		log.Println(err)
 		log.Println("Failed change lang")
 		addReaction(discord, channelID, messageID, "❌")
 		return
@@ -538,14 +541,21 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 			replace := regexp.MustCompile(userID + ":")
 			line := replace.ReplaceAllString(lines, "")
 			array := strings.Split(line, ",")
-			lang = array[0]
-			speed, err = strconv.ParseFloat(array[1], 64)
-			if err != nil {
-				return "", 0, 0, err
+			arrayLength := len(array)
+			if arrayLength > 1 {
+				lang = array[0]
 			}
-			pitch, err = strconv.ParseFloat(array[2], 64)
-			if err != nil {
-				return "", 0, 0, err
+			if arrayLength > 2 {
+				speed, err = strconv.ParseFloat(array[1], 64)
+				if err != nil {
+					return "", 0, 0, fmt.Errorf("Failed change speed string to float")
+				}
+			}
+			if arrayLength >= 3 {
+				pitch, err = strconv.ParseFloat(array[2], 64)
+				if err != nil {
+					return "", 0, 0, fmt.Errorf("Failed change pitch string to float")
+				}
 			}
 		} else {
 			if lines != "" {
@@ -876,27 +886,37 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 		return
 	}
 
-	//Roleのやつか確認
-	checkFooter, _ := discord.ChannelMessage(channelID, messageID)
-	for _, embed := range checkFooter.Embeds {
-		if !strings.Contains(embed.Footer.Text, "RoleContoler") {
-			return
-		}
-	}
-
 	//改行あとを削除
 	if strings.Contains(message, "\n") {
 		replace := regexp.MustCompile(`\n.*`)
 		message = replace.ReplaceAllString(message, "..")
 	}
 
+	//文字数を制限
+	length := len(message)
+	if length > 20 {
+		message = string([]rune(message)[:20])
+		message = message + ".."
+	}
+
 	//ログを表示
 	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + message + "  User:" + user + "  Add:" + emoji)
 
+	//embedがあるか確認
+	if len(messageData.Embeds) == 0 {
+		return
+	}
+
+	//Roleのやつか確認
+	for _, embed := range messageData.Embeds {
+		if !strings.Contains(embed.Footer.Text, "RoleContoler") {
+			return
+		}
+	}
+
 	//複配列をstringに変換
-	messageText, _ := discord.ChannelMessage(channelID, message)
 	text := ""
-	for _, embed := range messageText.Embeds {
+	for _, embed := range messageData.Embeds {
 		text = text + embed.Description
 	}
 
@@ -948,27 +968,37 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 		return
 	}
 
-	//Roleのやつか確認
-	checkFooter, _ := discord.ChannelMessage(channelID, messageID)
-	for _, embed := range checkFooter.Embeds {
-		if !strings.Contains(embed.Footer.Text, "RoleContoler") {
-			return
-		}
-	}
-
 	//改行あとを削除
 	if strings.Contains(message, "\n") {
 		replace := regexp.MustCompile(`\n.*`)
 		message = replace.ReplaceAllString(message, "..")
 	}
 
+	//文字数を制限
+	length := len(message)
+	if length > 20 {
+		message = string([]rune(message)[:20])
+		message = message + ".."
+	}
+
 	//ログを表示
 	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + message + "  User:" + user + "  Remove:" + emoji)
 
+	//embedがあるか確認
+	if len(messageData.Embeds) == 0 {
+		return
+	}
+
+	//Roleのやつか確認
+	for _, embed := range messageData.Embeds {
+		if !strings.Contains(embed.Footer.Text, "RoleContoler") {
+			return
+		}
+	}
+
 	//複配列をstringに変換
-	messageText, _ := discord.ChannelMessage(channelID, messageID)
 	text := ""
-	for _, embed := range messageText.Embeds {
+	for _, embed := range messageData.Embeds {
 		text = text + embed.Description
 	}
 
