@@ -151,10 +151,10 @@ func main() {
 //BOTの準備が終わったときにCall
 func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 	clientID = discord.State.User.ID
+	botStateUpdate(discord)
 }
 
-//メッセージが送られたときにCall
-func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
+func botStateUpdate(discord *discordgo.Session) {
 	//botのステータスアップデート
 	joinedServer := 0
 	for _, _ = range discord.State.Guilds {
@@ -170,7 +170,12 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	state := *prefix + " help | " + strconv.Itoa(joinedServer) + "鯖で稼働中" + VC
 	discord.UpdateStatus(0, state)
+	time.Sleep(1 * time.Second)
+	botStateUpdate(discord)
+}
 
+//メッセージが送られたときにCall
+func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	//一時変数
 	guildID := m.GuildID
 	guildData, _ := discord.Guild(guildID)
