@@ -817,6 +817,7 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 	Text := "--TTS--\n" +
 		*prefix + " join :VCに参加します\n" +
 		*prefix + " speed <0.5-5> : 読み上げ速度を変更します(User単位)\n" +
+		*prefix + " pitch <0.5-1.5> : 声の高さを変更します(User単位)\n" +
 		*prefix + " lang <言語> : 読み上げ言語を変更します(User単位)\n" +
 		*prefix + " word <元>,<先> : 辞書を登録します(Guild単位)\n" +
 		*prefix + " limit <文字数> : 読み上げ文字数の上限を設定します(Guild単位)\n" +
