@@ -474,8 +474,7 @@ func userConfig(userID string, userLang string, userSpeed float64) (string, floa
 
 	//変数定義
 	lang := ""
-	var speed float64
-	speed = 0
+	speed := 0.0
 	writeText := ""
 
 	//UserIDからデータを入手
