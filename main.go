@@ -160,18 +160,18 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 //メッセージが送られたときにCall
 func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	//一時変数
-	GuildID := m.GuildID
-	Guild_tmp, _ := discord.Guild(GuildID)
-	Guild := Guild_tmp.Name
-	ChannelID := m.ChannelID
-	Channel, _ := discord.Channel(ChannelID)
-	Message := m.ID
-	Content := m.Content
-	Author := m.Author.Username
-	AuthorID := m.Author.ID
+	guildID := m.GuildID
+	guild_tmp, _ := discord.Guild(guildID)
+	guild := guild_tmp.Name
+	channelID := m.ChannelID
+	channel, _ := discord.Channel(channelID)
+	messageID := m.ID
+	message := m.Content
+	author := m.Author.Username
+	authorID := m.Author.ID
 
 	//表示
-	log.Print("Guild:\"" + Guild + "\"  Channel:\"" + Channel.Name + "\"  " + Author + ": " + Content)
+	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  " + author + ": " + message)
 
 	//bot 読み上げ無し のチェック
 	if m.Author.Bot || strings.HasPrefix(m.Content, ";") {
@@ -180,81 +180,72 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	switch {
 	//TTS関連
-	case Prefix(Content, "join"):
-		if _, err := GetByGuildID(GuildID); err == nil {
-			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-				log.Println(err)
-			}
+	case Prefix(message, "join"):
+		_, err := GetByGuildID(guildID)
+		if err == nil {
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
-		Join(ChannelID, GuildID, discord, AuthorID, Message)
+		Join(channelID, guildID, discord, authorID, messageID)
 		return
-	case Prefix(Content, "speed "):
-		Speed(AuthorID, Content, discord, ChannelID, Message)
+	case Prefix(message, "speed "):
+		Speed(authorID, message, discord, channelID, messageID)
 		return
-	case Prefix(Content, "lang "):
-		Lang(AuthorID, Content, discord, ChannelID, Message)
+	case Prefix(message, "lang "):
+		Lang(authorID, message, discord, channelID, messageID)
 		return
-	case Prefix(Content, "limit "):
-		session, err := GetByGuildID(GuildID)
-		if err != nil || session.channelID != ChannelID {
-			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-				log.Println(err)
-			}
+	case Prefix(message, "limit "):
+		session, err := GetByGuildID(guildID)
+		if err != nil || session.channelID != channelID {
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
-		Limit(session, Content, discord, ChannelID, Message)
+		Limit(session, message, discord, channelID, messageID)
 		return
-	case Prefix(Content, "word "):
-		Word(Content, GuildID, discord, ChannelID, Message)
+	case Prefix(message, "word "):
+		Word(message, guildID, discord, channelID, messageID)
 		return
-	case Prefix(Content, "leave"):
-		session, err := GetByGuildID(GuildID)
-		if err != nil || session.channelID != ChannelID {
-			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-				log.Println(err)
-			}
+	case Prefix(message, "leave"):
+		session, err := GetByGuildID(guildID)
+		if err != nil || session.channelID != channelID {
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
-		Leave(session, discord, ChannelID, Message, true)
+		Leave(session, discord, channelID, messageID, true)
 		return
 		//Poll関連
-	case Prefix(Content, "poll "):
-		Poll(Content, Author, discord, ChannelID, Message)
+	case Prefix(message, "poll "):
+		Poll(message, author, discord, channelID, messageID)
 		return
 	//Role関連
-	case Prefix(Content, "role "):
+	case Prefix(message, "role "):
 		//ロールを持ってるか確認
-		roleCheck, _ := discord.GuildMember(GuildID, AuthorID)
-		roleList, _ := discord.GuildRoles(GuildID)
+		roleCheck, _ := discord.GuildMember(guildID, authorID)
+		roleList, _ := discord.GuildRoles(guildID)
 		for _, role := range roleList {
 			if strings.Contains(role.Name, "RoleController") {
 				for _, roleHave := range roleCheck.Roles {
 					if roleHave == role.ID {
-						Role(Content, Author, discord, ChannelID, Message)
+						Role(message, author, discord, channelID, messageID)
 						return
 					}
 				}
 			}
 		}
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	//help
-	case Prefix(Content, "help"):
-		Help(discord, ChannelID)
+	case Prefix(message, "help"):
+		Help(discord, channelID)
 		return
 	}
 
 	//読み上げ
-	session, err := GetByGuildID(GuildID)
-	if err != nil || session.channelID != ChannelID {
+	session, err := GetByGuildID(guildID)
+	if err != nil || session.channelID != channelID {
 		return
 	}
-	replace := regexp.MustCompile(*prefix + " once ")
-	text := replace.ReplaceAllString(Content, "")
-	Speech(AuthorID, session, text)
+	Speech(authorID, session, message)
 }
 
 func Prefix(message, check string) bool {
@@ -528,6 +519,9 @@ func Config(UserID string, UserLang string, UserSpeed float64) (string, float64,
 	Write := false
 	//上書き もしくはデータ作成
 	if UserLang != "" || UserSpeed != 0 {
+		Write = true
+	}
+	if langTmp == "" && speedTmp == 0 {
 		Write = true
 	}
 	if Write {
@@ -984,5 +978,14 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 			}
 			return
 		}
+	}
+}
+
+//リアクション追加用
+func addReaction(discord *discordgo.Session, channelID string, messageID string, reaction string) {
+	err := discord.MessageReactionAdd(channelID, messageID, reaction)
+	if err != nil {
+		log.Print("Error: addReaction Failed")
+		log.Println(err)
 	}
 }
