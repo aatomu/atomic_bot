@@ -151,7 +151,16 @@ func main() {
 //BOTの準備が終わったときにCall
 func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 	clientID = discord.State.User.ID
-	botStateUpdate(discord)
+	//1秒に1回呼び出す
+	ticker := time.NewTicker(1 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				botStateUpdate(discord)
+			}
+		}
+	}()
 }
 
 func botStateUpdate(discord *discordgo.Session) {
@@ -170,8 +179,6 @@ func botStateUpdate(discord *discordgo.Session) {
 	}
 	state := *prefix + " help | " + strconv.Itoa(joinedServer) + "鯖で稼働中" + VC
 	discord.UpdateStatus(0, state)
-	time.Sleep(1 * time.Second)
-	botStateUpdate(discord)
 }
 
 //メッセージが送られたときにCall
