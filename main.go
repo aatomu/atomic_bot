@@ -322,6 +322,11 @@ func Speech(UserID string, session *SessionData, text string) {
 		return
 	}
 
+	//! ? ` {} <>を読み上げない
+	replace := regexp.MustCompile(`!|{}|<>`)
+	text = replace.ReplaceAllString(text, "")
+	text = strings.Replace(text, "?", "", -1)
+
 	lang, speed, err := Config(UserID, "", 0)
 	if err != nil {
 		log.Println(err)
@@ -418,6 +423,11 @@ func Speed(UserID string, Content string, discord *discordgo.Session, ChannelID 
 	_, _, err = Config(UserID, "", tmp_speed)
 	if err != nil {
 		log.Println(err)
+		log.Println("missing chenge speed")
+		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
+			log.Println(err)
+		}
+		return
 	}
 	if err := discord.MessageReactionAdd(ChannelID, Message, "🔊"); err != nil {
 		log.Println(err)
@@ -448,6 +458,11 @@ func Lang(UserID string, Content string, discord *discordgo.Session, ChannelID s
 	_, _, err = Config(UserID, tmp, 0)
 	if err != nil {
 		log.Println(err)
+		log.Println("missing chenge lang")
+		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
+			log.Println(err)
+		}
+		return
 	}
 	if err := discord.MessageReactionAdd(ChannelID, Message, "🗣️"); err != nil {
 		log.Println(err)
@@ -591,12 +606,12 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 				log.Println(err)
 			}
 		}
-		return
 	}
 
 	//読み込み
 	text_tmp, err := ioutil.ReadFile(fileName)
 	if err != nil {
+		log.Println(err)
 		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
 			log.Println(err)
 		}
@@ -604,7 +619,8 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 	}
 
 	//textをにダブりがないかを確認&置換
-	text := string(text_tmp)
+	text := ""
+	text = text + string(text_tmp)
 	replace := regexp.MustCompile(`,.*`)
 	check := replace.ReplaceAllString(tmp, "")
 	if strings.Contains(text, check) {
@@ -615,6 +631,7 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 	//書き込み
 	err = ioutil.WriteFile(fileName, []byte(text), 0777)
 	if err != nil {
+		log.Println(err)
 		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
 			log.Println(err)
 		}
