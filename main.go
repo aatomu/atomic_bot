@@ -215,6 +215,9 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	case prefixCheck(message, "speed "):
 		changeUserSpeed(authorID, message, discord, channelID, messageID)
 		return
+	case prefixCheck(message, "pitch "):
+		changeUserPitch(authorID, message, discord, channelID, messageID)
+		return
 	case prefixCheck(message, "lang "):
 		changeUserLang(authorID, message, discord, channelID, messageID)
 		return
@@ -338,7 +341,7 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	text = replace.ReplaceAllString(text, "")
 	text = strings.Replace(text, "?", "", -1)
 
-	lang, speed, err := userConfig(userID, "", 0)
+	lang, speed, pitch, err := userConfig(userID, "", 0, 0)
 	if err != nil {
 		log.Println(err)
 	}
@@ -367,7 +370,7 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	defer session.mut.Unlock()
 
 	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=32&client=tw-ob&q=%s&tl=%s", url.QueryEscape(text), lang)
-	err = playAudioFile(speed, session, voiceURL)
+	err = playAudioFile(speed, pitch, session, voiceURL)
 	if err != nil {
 		log.Printf("Error:%s voiceURL:%s", err, voiceURL)
 		return
@@ -375,7 +378,7 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	return
 }
 
-func playAudioFile(userSpeed float64, session *SessionData, filename string) error {
+func playAudioFile(userSpeed float64, userPitch float64, session *SessionData, filename string) error {
 	if err := session.vcsession.Speaking(true); err != nil {
 		return err
 	}
@@ -385,8 +388,9 @@ func playAudioFile(userSpeed float64, session *SessionData, filename string) err
 	opts.CompressionLevel = 0
 	opts.RawOutput = true
 	opts.Bitrate = 120
-	opts.AudioFilter = fmt.Sprintf("atempo=%f", userSpeed)
-
+	speed := userSpeed
+	pitch := userPitch * 100
+	opts.AudioFilter = fmt.Sprintf("aresample=24000,asetrate=24000*%f/100,atempo=100/%f*%f", pitch, pitch, speed)
 	encodeSession, err := dca.EncodeFile(filename, opts)
 	if err != nil {
 		return err
@@ -416,7 +420,7 @@ func changeUserSpeed(userID string, message string, discord *discordgo.Session, 
 
 	speed, err := strconv.ParseFloat(speedText, 64)
 	if err != nil {
-		log.Println("Failed change string to float64")
+		log.Println("Failed change speed string to float64")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -427,7 +431,7 @@ func changeUserSpeed(userID string, message string, discord *discordgo.Session, 
 		return
 	}
 
-	_, _, err = userConfig(userID, "", speed)
+	_, _, _, err = userConfig(userID, "", speed, 0)
 	if err != nil {
 		log.Println("Failed change speed")
 		addReaction(discord, channelID, messageID, "❌")
@@ -437,11 +441,37 @@ func changeUserSpeed(userID string, message string, discord *discordgo.Session, 
 	return
 }
 
+func changeUserPitch(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
+	pitchText := strings.Replace(message, *prefix+" pitch ", "", 1)
+
+	pitch, err := strconv.ParseFloat(pitchText, 64)
+	if err != nil {
+		log.Println("Failed change pitch string to float64")
+		addReaction(discord, channelID, messageID, "❌")
+		return
+	}
+
+	if pitch < 0.5 || 1.5 < pitch {
+		log.Println("Failed lowest or highest pitch")
+		addReaction(discord, channelID, messageID, "❌")
+		return
+	}
+
+	_, _, _, err = userConfig(userID, "", 0, pitch)
+	if err != nil {
+		log.Println("Failed change pitch")
+		addReaction(discord, channelID, messageID, "❌")
+		return
+	}
+	addReaction(discord, channelID, messageID, "🎶")
+	return
+}
+
 func changeUserLang(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
 	lang := strings.Replace(message, *prefix+" lang ", "", 1)
 
 	if lang == "auto" {
-		_, _, err := userConfig(userID, lang, 0)
+		_, _, _, err := userConfig(userID, lang, 0, 0)
 		if err != nil {
 			log.Println(err)
 		}
@@ -455,7 +485,7 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 		return
 	}
 
-	_, _, err = userConfig(userID, lang, 0)
+	_, _, _, err = userConfig(userID, lang, 0, 0)
 	if err != nil {
 		log.Println("Failed change lang")
 		addReaction(discord, channelID, messageID, "❌")
@@ -466,10 +496,10 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 	return
 }
 
-func userConfig(userID string, userLang string, userSpeed float64) (string, float64, error) {
+func userConfig(userID string, userLang string, userSpeed float64, userPitch float64) (string, float64, float64, error) {
 	//BOTチェック
 	if userID == "BOT" {
-		return "ja", 1.75, nil
+		return "ja", 1.75, 1, nil
 	}
 
 	//ファイルパスの指定
@@ -483,14 +513,14 @@ func userConfig(userID string, userLang string, userSpeed float64) (string, floa
 		if err != nil {
 			log.Println(err)
 		}
-		return "", 0, fmt.Errorf("missing crate file")
+		return "", 0, 0, fmt.Errorf("missing crate file")
 	}
 
 	//読み込み
 	byteText, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		log.Println(err)
-		return "", 0, fmt.Errorf("missing read file")
+		return "", 0, 0, fmt.Errorf("missing read file")
 	}
 
 	//[]byteをstringに
@@ -499,6 +529,7 @@ func userConfig(userID string, userLang string, userSpeed float64) (string, floa
 	//変数定義
 	lang := ""
 	speed := 0.0
+	pitch := 0.0
 	writeText := ""
 
 	//UserIDからデータを入手
@@ -510,7 +541,11 @@ func userConfig(userID string, userLang string, userSpeed float64) (string, floa
 			lang = array[0]
 			speed, err = strconv.ParseFloat(array[1], 64)
 			if err != nil {
-				return "", 0, err
+				return "", 0, 0, err
+			}
+			pitch, err = strconv.ParseFloat(array[2], 64)
+			if err != nil {
+				return "", 0, 0, err
 			}
 		} else {
 			if lines != "" {
@@ -522,10 +557,10 @@ func userConfig(userID string, userLang string, userSpeed float64) (string, floa
 	//書き込みチェック用変数
 	Write := false
 	//上書き もしくはデータ作成
-	if userLang != "" || userSpeed != 0 {
+	if userLang != "" || userSpeed != 0 || userPitch != 0 {
 		Write = true
 	}
-	if lang == "" && speed == 0 {
+	if lang == "" || speed == 0 || pitch == 0 {
 		Write = true
 	}
 	if Write {
@@ -540,19 +575,26 @@ func userConfig(userID string, userLang string, userSpeed float64) (string, floa
 		if speed == 0 {
 			speed = 1.0
 		}
-		if userSpeed != 0 {
+		if userSpeed != 0.0 {
 			speed = userSpeed
 		}
+		//pitch
+		if pitch == 0.0 {
+			pitch = 1.0
+		}
+		if userPitch != 0 {
+			pitch = userPitch
+		}
 		//最後に書き込むテキストを追加(Write==trueの時)
-		writeText = writeText + userID + ":" + lang + "," + strconv.FormatFloat(speed, 'f', -1, 64)
+		writeText = writeText + userID + ":" + lang + "," + strconv.FormatFloat(speed, 'f', -1, 64) + "," + strconv.FormatFloat(pitch, 'f', -1, 64)
 		//書き込み
 		err = ioutil.WriteFile(fileName, []byte(writeText), 0777)
 		if err != nil {
-			return "", 0, err
+			return "", 0, 0, err
 		}
 		log.Println("User userConfig Write")
 	}
-	return lang, speed, nil
+	return lang, speed, pitch, nil
 }
 
 func changeSpeechLimit(session *SessionData, message string, discord *discordgo.Session, channelID string, messageID string) {
@@ -560,7 +602,7 @@ func changeSpeechLimit(session *SessionData, message string, discord *discordgo.
 
 	limit, err := strconv.Atoi(limitText)
 	if err != nil {
-		log.Println("Failed change string to int")
+		log.Println("Failed change speed string to int")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
