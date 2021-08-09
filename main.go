@@ -336,8 +336,8 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 		return
 	}
 
-	//! ? ` {} <>を読み上げない
-	replace := regexp.MustCompile(`!|{}|<>`)
+	//! ? ` { } < >を読み上げない
+	replace := regexp.MustCompile(`!|{|}|<|>`)
 	text = replace.ReplaceAllString(text, "")
 	text = strings.Replace(text, "?", "", -1)
 
