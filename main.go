@@ -605,6 +605,7 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
 				log.Println(err)
 			}
+			return
 		}
 	}
 
