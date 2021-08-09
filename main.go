@@ -180,45 +180,45 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	switch {
 	//TTS関連
-	case Prefix(message, "join"):
+	case prefixCheck(message, "join"):
 		_, err := GetByGuildID(guildID)
 		if err == nil {
 			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
-		Join(channelID, guildID, discord, authorID, messageID)
+		joinVoiceChat(channelID, guildID, discord, authorID, messageID)
 		return
-	case Prefix(message, "speed "):
-		Speed(authorID, message, discord, channelID, messageID)
+	case prefixCheck(message, "speed "):
+		changeUserSpeed(authorID, message, discord, channelID, messageID)
 		return
-	case Prefix(message, "lang "):
-		Lang(authorID, message, discord, channelID, messageID)
+	case prefixCheck(message, "lang "):
+		changeUserLang(authorID, message, discord, channelID, messageID)
 		return
-	case Prefix(message, "limit "):
+	case prefixCheck(message, "limit "):
 		session, err := GetByGuildID(guildID)
 		if err != nil || session.channelID != channelID {
 			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
-		Limit(session, message, discord, channelID, messageID)
+		changeSpeechLimit(session, message, discord, channelID, messageID)
 		return
-	case Prefix(message, "word "):
-		Word(message, guildID, discord, channelID, messageID)
+	case prefixCheck(message, "word "):
+		addWord(message, guildID, discord, channelID, messageID)
 		return
-	case Prefix(message, "leave"):
+	case prefixCheck(message, "leave"):
 		session, err := GetByGuildID(guildID)
 		if err != nil || session.channelID != channelID {
 			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
-		Leave(session, discord, channelID, messageID, true)
+		leaveVoiceChat(session, discord, channelID, messageID, true)
 		return
 		//Poll関連
-	case Prefix(message, "poll "):
-		Poll(message, author, discord, channelID, messageID)
+	case prefixCheck(message, "poll "):
+		createPoll(message, author, discord, channelID, messageID)
 		return
 	//Role関連
-	case Prefix(message, "role "):
+	case prefixCheck(message, "role "):
 		//ロールを持ってるか確認
 		roleCheck, _ := discord.GuildMember(guildID, authorID)
 		roleList, _ := discord.GuildRoles(guildID)
@@ -226,7 +226,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			if strings.Contains(role.Name, "RoleController") {
 				for _, roleHave := range roleCheck.Roles {
 					if roleHave == role.ID {
-						Role(message, author, discord, channelID, messageID)
+						crateRoleManager(message, author, discord, channelID, messageID)
 						return
 					}
 				}
@@ -235,8 +235,8 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	//help
-	case Prefix(message, "help"):
-		Help(discord, channelID)
+	case prefixCheck(message, "help"):
+		sendHelp(discord, channelID)
 		return
 	}
 
@@ -245,14 +245,14 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	if err != nil || session.channelID != channelID {
 		return
 	}
-	Speech(authorID, session, message)
+	speechOnVoiceChat(authorID, session, message)
 }
 
-func Prefix(message, check string) bool {
+func prefixCheck(message, check string) bool {
 	return strings.HasPrefix(message, *prefix+" "+check)
 }
 
-func Join(channelID string, guildID string, discord *discordgo.Session, authorID string, messageID string) {
+func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session, authorID string, messageID string) {
 	if voiceConection, err := joinUserVoiceChannel(discord, authorID); err != nil {
 		log.Println("Error : Failed join vc")
 		addReaction(discord, channelID, messageID, "❌")
@@ -269,7 +269,7 @@ func Join(channelID string, guildID string, discord *discordgo.Session, authorID
 		}
 		sessions = append(sessions, session)
 		addReaction(discord, channelID, messageID, "✅")
-		Speech("BOT", session, "おはー")
+		speechOnVoiceChat("BOT", session, "おはー")
 		return
 	}
 }
@@ -290,7 +290,7 @@ func findUserVoiceState(discord *discordgo.Session, userid string) *discordgo.Vo
 	return nil
 }
 
-func Speech(UserID string, session *SessionData, text string) {
+func speechOnVoiceChat(UserID string, session *SessionData, text string) {
 	data, _ := os.Open("./dic/" + session.guildID + ".txt")
 	defer data.Close()
 	scanner := bufio.NewScanner(data)
@@ -314,7 +314,7 @@ func Speech(UserID string, session *SessionData, text string) {
 	text = replace.ReplaceAllString(text, "")
 	text = strings.Replace(text, "?", "", -1)
 
-	lang, speed, err := Config(UserID, "", 0)
+	lang, speed, err := userConfig(UserID, "", 0)
 	if err != nil {
 		log.Println(err)
 	}
@@ -387,7 +387,7 @@ func playAudioFile(UserSpeed float64, session *SessionData, filename string) err
 	}
 }
 
-func Speed(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
+func changeUserSpeed(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
 	tmp := strings.Replace(message, *prefix+" speed ", "", 1)
 
 	tmp_speed, err := strconv.ParseFloat(tmp, 64)
@@ -403,7 +403,7 @@ func Speed(userID string, message string, discord *discordgo.Session, channelID 
 		return
 	}
 
-	_, _, err = Config(userID, "", tmp_speed)
+	_, _, err = userConfig(userID, "", tmp_speed)
 	if err != nil {
 		log.Println("Failed change speed")
 		addReaction(discord, channelID, messageID, "❌")
@@ -413,11 +413,11 @@ func Speed(userID string, message string, discord *discordgo.Session, channelID 
 	return
 }
 
-func Lang(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
+func changeUserLang(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
 	tmp := strings.Replace(message, *prefix+" lang ", "", 1)
 
 	if tmp == "auto" {
-		_, _, err := Config(userID, tmp, 0)
+		_, _, err := userConfig(userID, tmp, 0)
 		if err != nil {
 			log.Println(err)
 		}
@@ -431,7 +431,7 @@ func Lang(userID string, message string, discord *discordgo.Session, channelID s
 		return
 	}
 
-	_, _, err = Config(userID, tmp, 0)
+	_, _, err = userConfig(userID, tmp, 0)
 	if err != nil {
 		log.Println("Failed change lang")
 		addReaction(discord, channelID, messageID, "❌")
@@ -442,7 +442,7 @@ func Lang(userID string, message string, discord *discordgo.Session, channelID s
 	return
 }
 
-func Config(UserID string, UserLang string, UserSpeed float64) (string, float64, error) {
+func userConfig(UserID string, UserLang string, UserSpeed float64) (string, float64, error) {
 	//BOTチェック
 	if UserID == "BOT" {
 		return "ja", 1.75, nil
@@ -527,12 +527,12 @@ func Config(UserID string, UserLang string, UserSpeed float64) (string, float64,
 		if err != nil {
 			return "", 0, err
 		}
-		log.Println("User Config Write")
+		log.Println("User userConfig Write")
 	}
 	return langTmp, speedTmp, nil
 }
 
-func Limit(session *SessionData, message string, discord *discordgo.Session, channelID string, messageID string) {
+func changeSpeechLimit(session *SessionData, message string, discord *discordgo.Session, channelID string, messageID string) {
 	tmp := strings.Replace(message, *prefix+" limit ", "", 1)
 
 	tmp_limit, err := strconv.Atoi(tmp)
@@ -553,7 +553,7 @@ func Limit(session *SessionData, message string, discord *discordgo.Session, cha
 	return
 }
 
-func Word(message string, guildID string, discord *discordgo.Session, channelID string, messageID string) {
+func addWord(message string, guildID string, discord *discordgo.Session, channelID string, messageID string) {
 	tmp := strings.Replace(message, *prefix+" word ", "", 1)
 
 	if strings.Count(tmp, ",") != 1 {
@@ -606,8 +606,8 @@ func Word(message string, guildID string, discord *discordgo.Session, channelID 
 	return
 }
 
-func Leave(session *SessionData, discord *discordgo.Session, channelID string, messageID string, reaction bool) {
-	Speech("BOT", session, "さいなら")
+func leaveVoiceChat(session *SessionData, discord *discordgo.Session, channelID string, messageID string, reaction bool) {
+	speechOnVoiceChat("BOT", session, "さいなら")
 
 	if err := session.vcsession.Disconnect(); err != nil {
 		log.Println("Failed disconnect")
@@ -631,7 +631,7 @@ func Leave(session *SessionData, discord *discordgo.Session, channelID string, m
 	}
 }
 
-func Poll(message string, author string, discord *discordgo.Session, channelID string, messageID string) {
+func createPoll(message string, author string, discord *discordgo.Session, channelID string, messageID string) {
 	//複数?あるか確認
 	if strings.Contains(message, ",") == false {
 		log.Println("unknown word")
@@ -682,7 +682,7 @@ func Poll(message string, author string, discord *discordgo.Session, channelID s
 	}
 }
 
-func Role(message string, author string, discord *discordgo.Session, channelID string, messageID string) {
+func crateRoleManager(message string, author string, discord *discordgo.Session, channelID string, messageID string) {
 	//複数?あるか確認
 	if strings.Contains(message, ",") == false {
 		log.Println("unknown word")
@@ -740,7 +740,7 @@ func Role(message string, author string, discord *discordgo.Session, channelID s
 	}
 }
 
-func Help(discord *discordgo.Session, ChannelID string) {
+func sendHelp(discord *discordgo.Session, ChannelID string) {
 	//embedのtmp作成
 	embed := &discordgo.MessageEmbed{
 		Type:        "rich",
@@ -783,7 +783,7 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 		if err != nil {
 			return
 		}
-		Leave(session, discord, "", "", false)
+		leaveVoiceChat(session, discord, "", "", false)
 	}
 }
 
