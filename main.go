@@ -161,8 +161,8 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	//一時変数
 	guildID := m.GuildID
-	guild_tmp, _ := discord.Guild(guildID)
-	guild := guild_tmp.Name
+	guildData, _ := discord.Guild(guildID)
+	guild := guildData.Name
 	channelID := m.ChannelID
 	channel, _ := discord.Channel(channelID)
 	messageID := m.ID
@@ -290,16 +290,16 @@ func findUserVoiceState(discord *discordgo.Session, userid string) *discordgo.Vo
 	return nil
 }
 
-func speechOnVoiceChat(UserID string, session *SessionData, text string) {
+func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	data, _ := os.Open("./dic/" + session.guildID + ".txt")
 	defer data.Close()
 	scanner := bufio.NewScanner(data)
 	for scanner.Scan() {
-		tmp := scanner.Text()
+		line := scanner.Text()
 		replace := regexp.MustCompile(`,.*`)
-		from := replace.ReplaceAllString(tmp, "")
+		from := replace.ReplaceAllString(line, "")
 		replace = regexp.MustCompile(`.*,`)
-		to := replace.ReplaceAllString(tmp, "")
+		to := replace.ReplaceAllString(line, "")
 		replace = regexp.MustCompile(from)
 		text = replace.ReplaceAllString(text, to)
 	}
@@ -314,7 +314,7 @@ func speechOnVoiceChat(UserID string, session *SessionData, text string) {
 	text = replace.ReplaceAllString(text, "")
 	text = strings.Replace(text, "?", "", -1)
 
-	lang, speed, err := userConfig(UserID, "", 0)
+	lang, speed, err := userConfig(userID, "", 0)
 	if err != nil {
 		log.Println(err)
 	}
@@ -351,7 +351,7 @@ func speechOnVoiceChat(UserID string, session *SessionData, text string) {
 	return
 }
 
-func playAudioFile(UserSpeed float64, session *SessionData, filename string) error {
+func playAudioFile(userSpeed float64, session *SessionData, filename string) error {
 	if err := session.vcsession.Speaking(true); err != nil {
 		return err
 	}
@@ -361,7 +361,7 @@ func playAudioFile(UserSpeed float64, session *SessionData, filename string) err
 	opts.CompressionLevel = 0
 	opts.RawOutput = true
 	opts.Bitrate = 120
-	opts.AudioFilter = fmt.Sprintf("atempo=%f", UserSpeed)
+	opts.AudioFilter = fmt.Sprintf("atempo=%f", userSpeed)
 
 	encodeSession, err := dca.EncodeFile(filename, opts)
 	if err != nil {
@@ -388,22 +388,22 @@ func playAudioFile(UserSpeed float64, session *SessionData, filename string) err
 }
 
 func changeUserSpeed(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
-	tmp := strings.Replace(message, *prefix+" speed ", "", 1)
+	speedText := strings.Replace(message, *prefix+" speed ", "", 1)
 
-	tmp_speed, err := strconv.ParseFloat(tmp, 64)
+	speed, err := strconv.ParseFloat(speedText, 64)
 	if err != nil {
 		log.Println("Failed change string to float64")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
-	if tmp_speed < 0.5 || 5 < tmp_speed {
+	if speed < 0.5 || 5 < speed {
 		log.Println("Failed lowest or highest speed")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
-	_, _, err = userConfig(userID, "", tmp_speed)
+	_, _, err = userConfig(userID, "", speed)
 	if err != nil {
 		log.Println("Failed change speed")
 		addReaction(discord, channelID, messageID, "❌")
@@ -414,24 +414,24 @@ func changeUserSpeed(userID string, message string, discord *discordgo.Session, 
 }
 
 func changeUserLang(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
-	tmp := strings.Replace(message, *prefix+" lang ", "", 1)
+	lang := strings.Replace(message, *prefix+" lang ", "", 1)
 
-	if tmp == "auto" {
-		_, _, err := userConfig(userID, tmp, 0)
+	if lang == "auto" {
+		_, _, err := userConfig(userID, lang, 0)
 		if err != nil {
 			log.Println(err)
 		}
 		return
 	}
 
-	_, err := language.Parse(tmp)
+	_, err := language.Parse(lang)
 	if err != nil {
 		log.Println("Failed change to unknown Language")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
-	_, _, err = userConfig(userID, tmp, 0)
+	_, _, err = userConfig(userID, lang, 0)
 	if err != nil {
 		log.Println("Failed change lang")
 		addReaction(discord, channelID, messageID, "❌")
@@ -442,9 +442,9 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 	return
 }
 
-func userConfig(UserID string, UserLang string, UserSpeed float64) (string, float64, error) {
+func userConfig(userID string, userLang string, userSpeed float64) (string, float64, error) {
 	//BOTチェック
-	if UserID == "BOT" {
+	if userID == "BOT" {
 		return "ja", 1.75, nil
 	}
 
@@ -463,29 +463,29 @@ func userConfig(UserID string, UserLang string, UserSpeed float64) (string, floa
 	}
 
 	//読み込み
-	text_tmp, err := ioutil.ReadFile(fileName)
+	byteText, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		log.Println(err)
 		return "", 0, fmt.Errorf("missing read file")
 	}
 
 	//[]byteをstringに
-	text := string(text_tmp)
+	text := string(byteText)
 
 	//変数定義
-	langTmp := ""
-	var speedTmp float64
-	speedTmp = 0
+	lang := ""
+	var speed float64
+	speed = 0
 	writeText := ""
 
 	//UserIDからデータを入手
 	for _, lines := range strings.Split(text, "\n") {
-		if strings.Contains(lines, UserID+":") {
-			replace := regexp.MustCompile(UserID + ":")
+		if strings.Contains(lines, userID+":") {
+			replace := regexp.MustCompile(userID + ":")
 			line := replace.ReplaceAllString(lines, "")
-			tmp := strings.Split(line, ",")
-			langTmp = tmp[0]
-			speedTmp, err = strconv.ParseFloat(tmp[1], 64)
+			array := strings.Split(line, ",")
+			lang = array[0]
+			speed, err = strconv.ParseFloat(array[1], 64)
 			if err != nil {
 				return "", 0, err
 			}
@@ -499,29 +499,29 @@ func userConfig(UserID string, UserLang string, UserSpeed float64) (string, floa
 	//書き込みチェック用変数
 	Write := false
 	//上書き もしくはデータ作成
-	if UserLang != "" || UserSpeed != 0 {
+	if userLang != "" || userSpeed != 0 {
 		Write = true
 	}
-	if langTmp == "" && speedTmp == 0 {
+	if lang == "" && speed == 0 {
 		Write = true
 	}
 	if Write {
 		//lang
-		if langTmp == "" {
-			langTmp = "auto"
+		if lang == "" {
+			lang = "auto"
 		}
-		if UserLang != "" {
-			langTmp = UserLang
+		if userLang != "" {
+			lang = userLang
 		}
 		//speed
-		if speedTmp == 0 {
-			speedTmp = 1.0
+		if speed == 0 {
+			speed = 1.0
 		}
-		if UserSpeed != 0 {
-			speedTmp = UserSpeed
+		if userSpeed != 0 {
+			speed = userSpeed
 		}
 		//最後に書き込むテキストを追加(Write==trueの時)
-		writeText = writeText + UserID + ":" + langTmp + "," + strconv.FormatFloat(speedTmp, 'f', -1, 64)
+		writeText = writeText + userID + ":" + lang + "," + strconv.FormatFloat(speed, 'f', -1, 64)
 		//書き込み
 		err = ioutil.WriteFile(fileName, []byte(writeText), 0777)
 		if err != nil {
@@ -529,34 +529,34 @@ func userConfig(UserID string, UserLang string, UserSpeed float64) (string, floa
 		}
 		log.Println("User userConfig Write")
 	}
-	return langTmp, speedTmp, nil
+	return lang, speed, nil
 }
 
 func changeSpeechLimit(session *SessionData, message string, discord *discordgo.Session, channelID string, messageID string) {
-	tmp := strings.Replace(message, *prefix+" limit ", "", 1)
+	limitText := strings.Replace(message, *prefix+" limit ", "", 1)
 
-	tmp_limit, err := strconv.Atoi(tmp)
+	limit, err := strconv.Atoi(limitText)
 	if err != nil {
 		log.Println("Failed change string to int")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
-	if tmp_limit <= 0 {
+	if limit <= 0 {
 		log.Println("Failed lowest limit")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
-	session.speechLimit = tmp_limit
+	session.speechLimit = limit
 	addReaction(discord, channelID, messageID, "🥺")
 	return
 }
 
 func addWord(message string, guildID string, discord *discordgo.Session, channelID string, messageID string) {
-	tmp := strings.Replace(message, *prefix+" word ", "", 1)
+	word := strings.Replace(message, *prefix+" word ", "", 1)
 
-	if strings.Count(tmp, ",") != 1 {
+	if strings.Count(word, ",") != 1 {
 		log.Println("unknown word")
 		addReaction(discord, channelID, messageID, "❌")
 		return
@@ -577,23 +577,24 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	}
 
 	//読み込み
-	text_tmp, err := ioutil.ReadFile(fileName)
+	byteText, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		log.Println("Failed read File")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
+	//[]byteをstringに
+	text := string(byteText)
+
 	//textをにダブりがないかを確認&置換
-	text := ""
-	text = text + string(text_tmp)
 	replace := regexp.MustCompile(`,.*`)
-	check := replace.ReplaceAllString(tmp, "")
+	check := replace.ReplaceAllString(word, "")
 	if strings.Contains(text, check) {
 		replace := regexp.MustCompile(`.*` + check + `,.*\n`)
 		text = replace.ReplaceAllString(text, "")
 	}
-	text = text + tmp + "\n"
+	text = text + word + "\n"
 	//書き込み
 	err = ioutil.WriteFile(fileName, []byte(text), 0777)
 	if err != nil {
@@ -648,7 +649,7 @@ func createPoll(message string, author string, discord *discordgo.Session, chann
 	if length <= 20 {
 		//embedとかreaction用のやつ
 		alphabet := []string{"", "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮", "🇯", "🇰", "🇱", "🇲", "🇳", "🇴", "🇵", "🇶", "🇷", "🇸", "🇹"}
-		//embedのtmp作成
+		//embedのData作成
 		embed := &discordgo.MessageEmbed{
 			Type:        "rich",
 			Title:       "",
@@ -706,7 +707,7 @@ func crateRoleManager(message string, author string, discord *discordgo.Session,
 	if length <= 20 {
 		//embedとかreaction用のやつ
 		alphabet := []string{"", "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮", "🇯", "🇰", "🇱", "🇲", "🇳", "🇴", "🇵", "🇶", "🇷", "🇸", "🇹"}
-		//embedのtmp作成
+		//embedのData作成
 		embed := &discordgo.MessageEmbed{
 			Type:        "rich",
 			Title:       "",
@@ -740,8 +741,8 @@ func crateRoleManager(message string, author string, discord *discordgo.Session,
 	}
 }
 
-func sendHelp(discord *discordgo.Session, ChannelID string) {
-	//embedのtmp作成
+func sendHelp(discord *discordgo.Session, channelID string) {
+	//embedのData作成
 	embed := &discordgo.MessageEmbed{
 		Type:        "rich",
 		Title:       "BOT HELP",
@@ -761,7 +762,7 @@ func sendHelp(discord *discordgo.Session, ChannelID string) {
 		*prefix + " role <名前>,@<ロール1>,@<ロール2>... : ロール管理を作成します\n  *RoleControllerという名前のロールがついている必要があります"
 	embed.Description = Text
 	//送信
-	if _, err := discord.ChannelMessageSendEmbed(ChannelID, embed); err != nil {
+	if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
 		log.Println(err)
 	}
 }
@@ -769,16 +770,16 @@ func sendHelp(discord *discordgo.Session, ChannelID string) {
 //VCでJoin||Leaveが起きたときにCall
 func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 
-	tmp := ","
+	users := ","
 	for _, guild := range discord.State.Guilds {
 		for _, vs := range guild.VoiceStates {
 			if v.ChannelID == vs.ChannelID && vs.UserID != clientID {
 				return
 			}
-			tmp = tmp + vs.UserID + ","
+			users = users + vs.UserID + ","
 		}
 	}
-	if strings.Count(tmp, ",") == 2 {
+	if strings.Count(users, ",") == 2 {
 		session, err := GetByGuildID(v.GuildID)
 		if err != nil {
 			return
@@ -790,27 +791,27 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 //リアクション追加でCall
 func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.MessageReactionAdd) {
 	//変数定義
-	UserID := reaction.UserID
-	User_tmp, _ := discord.User(UserID)
-	User := User_tmp.Username
-	Emoji := reaction.Emoji.Name
-	ChannelID := reaction.ChannelID
-	Channel, _ := discord.Channel(ChannelID)
-	MessageID := reaction.MessageID
-	Message_tmp, _ := discord.ChannelMessage(ChannelID, MessageID)
-	Message := Message_tmp.Content
-	GuildID := reaction.GuildID
-	Guild_tmp, _ := discord.Guild(GuildID)
-	Guild := Guild_tmp.Name
+	userID := reaction.UserID
+	userData, _ := discord.User(userID)
+	user := userData.Username
+	emoji := reaction.Emoji.Name
+	channelID := reaction.ChannelID
+	channel, _ := discord.Channel(channelID)
+	messageID := reaction.MessageID
+	messageData, _ := discord.ChannelMessage(channelID, messageID)
+	message := messageData.Content
+	guildID := reaction.GuildID
+	guildData, _ := discord.Guild(guildID)
+	guild := guildData.Name
 
 	//bot のチェック
-	botCheck, _ := discord.User(UserID)
+	botCheck, _ := discord.User(userID)
 	if botCheck.Bot {
 		return
 	}
 
 	//Roleのやつか確認
-	checkFooter, _ := discord.ChannelMessage(ChannelID, MessageID)
+	checkFooter, _ := discord.ChannelMessage(channelID, messageID)
 	for _, embed := range checkFooter.Embeds {
 		if !strings.Contains(embed.Footer.Text, "RoleContoler") {
 			return
@@ -818,39 +819,39 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 	}
 
 	//改行あとを削除
-	if strings.Contains(Message, "\n") {
+	if strings.Contains(message, "\n") {
 		replace := regexp.MustCompile(`\n.*`)
-		Message = replace.ReplaceAllString(Message, "..")
+		message = replace.ReplaceAllString(message, "..")
 	}
 
 	//ログを表示
-	log.Print("Guild:\"" + Guild + "\"  Channel:\"" + Channel.Name + "\"  Message:" + Message + "  User:" + User + "  Add:" + Emoji)
+	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + message + "  User:" + user + "  Add:" + emoji)
 
 	//複配列をstringに変換
-	message, _ := discord.ChannelMessage(ChannelID, MessageID)
+	messageText, _ := discord.ChannelMessage(channelID, message)
 	text := ""
-	for _, embed := range message.Embeds {
+	for _, embed := range messageText.Embeds {
 		text = text + embed.Description
 	}
 
 	//stringを配列にして1個ずつ処理
 	for _, embed := range strings.Split(text, "\n") {
 		//ロール追加
-		if strings.HasPrefix(embed, Emoji) {
+		if strings.HasPrefix(embed, emoji) {
 			replace := regexp.MustCompile(`[^0-9]`)
-			RoleID := replace.ReplaceAllString(embed, "")
-			err := discord.GuildMemberRoleAdd(GuildID, UserID, RoleID)
+			roleID := replace.ReplaceAllString(embed, "")
+			err := discord.GuildMemberRoleAdd(guildID, userID, roleID)
 			//失敗時メッセージ出す
 			if err != nil {
 				log.Print(err)
-				//embedのtmp作成
+				//embedのData作成
 				embed := &discordgo.MessageEmbed{
 					Type:        "rich",
 					Description: "えらー : 追加できませんでした",
 					Color:       1000,
 				}
 				//送信
-				if _, err := discord.ChannelMessageSendEmbed(ChannelID, embed); err != nil {
+				if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
 					log.Println(err)
 				}
 			}
@@ -862,27 +863,27 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 //リアクション削除でCall
 func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.MessageReactionRemove) {
 	//変数定義
-	UserID := reaction.UserID
-	User_tmp, _ := discord.User(UserID)
-	User := User_tmp.Username
-	Emoji := reaction.Emoji.Name
-	ChannelID := reaction.ChannelID
-	Channel, _ := discord.Channel(ChannelID)
-	MessageID := reaction.MessageID
-	Message_tmp, _ := discord.ChannelMessage(ChannelID, MessageID)
-	Message := Message_tmp.Content
-	GuildID := reaction.GuildID
-	Guild_tmp, _ := discord.Guild(GuildID)
-	Guild := Guild_tmp.Name
+	userID := reaction.UserID
+	userData, _ := discord.User(userID)
+	user := userData.Username
+	emoji := reaction.Emoji.Name
+	channelID := reaction.ChannelID
+	channel, _ := discord.Channel(channelID)
+	messageID := reaction.MessageID
+	messageData, _ := discord.ChannelMessage(channelID, messageID)
+	message := messageData.Content
+	guildID := reaction.GuildID
+	guildData, _ := discord.Guild(guildID)
+	guild := guildData.Name
 
 	//bot のチェック
-	botCheck, _ := discord.User(UserID)
+	botCheck, _ := discord.User(userID)
 	if botCheck.Bot {
 		return
 	}
 
 	//Roleのやつか確認
-	checkFooter, _ := discord.ChannelMessage(ChannelID, MessageID)
+	checkFooter, _ := discord.ChannelMessage(channelID, messageID)
 	for _, embed := range checkFooter.Embeds {
 		if !strings.Contains(embed.Footer.Text, "RoleContoler") {
 			return
@@ -890,39 +891,39 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 	}
 
 	//改行あとを削除
-	if strings.Contains(Message, "\n") {
+	if strings.Contains(message, "\n") {
 		replace := regexp.MustCompile(`\n.*`)
-		Message = replace.ReplaceAllString(Message, "..")
+		message = replace.ReplaceAllString(message, "..")
 	}
 
 	//ログを表示
-	log.Print("Guild:\"" + Guild + "\"  Channel:\"" + Channel.Name + "\"  Message:" + Message + "  User:" + User + "  Remove:" + Emoji)
+	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + message + "  User:" + user + "  Remove:" + emoji)
 
 	//複配列をstringに変換
-	message, _ := discord.ChannelMessage(ChannelID, MessageID)
+	messageText, _ := discord.ChannelMessage(channelID, messageID)
 	text := ""
-	for _, embed := range message.Embeds {
+	for _, embed := range messageText.Embeds {
 		text = text + embed.Description
 	}
 
 	//stringを配列にして1個ずつ処理
 	for _, embed := range strings.Split(text, "\n") {
 		//ロール追加
-		if strings.HasPrefix(embed, Emoji) {
+		if strings.HasPrefix(embed, emoji) {
 			replace := regexp.MustCompile(`[^0-9]`)
-			RoleID := replace.ReplaceAllString(embed, "")
-			err := discord.GuildMemberRoleRemove(GuildID, UserID, RoleID)
+			roleID := replace.ReplaceAllString(embed, "")
+			err := discord.GuildMemberRoleRemove(guildID, userID, roleID)
 			//失敗時メッセージ出す
 			if err != nil {
 				log.Print(err)
-				//embedのtmp作成
+				//embedのData作成
 				embed := &discordgo.MessageEmbed{
 					Type:        "rich",
 					Description: "えらー : 削除できませんでした",
 					Color:       1000,
 				}
 				//送信
-				if _, err := discord.ChannelMessageSendEmbed(ChannelID, embed); err != nil {
+				if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
 					log.Println(err)
 				}
 			}
