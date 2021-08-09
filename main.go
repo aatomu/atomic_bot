@@ -392,7 +392,7 @@ func Speed(userID string, message string, discord *discordgo.Session, channelID 
 
 	tmp_speed, err := strconv.ParseFloat(tmp, 64)
 	if err != nil {
-		log.Println("Failed chenge string to float64")
+		log.Println("Failed change string to float64")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -405,7 +405,7 @@ func Speed(userID string, message string, discord *discordgo.Session, channelID 
 
 	_, _, err = Config(userID, "", tmp_speed)
 	if err != nil {
-		log.Println("Failed chenge speed")
+		log.Println("Failed change speed")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -426,14 +426,14 @@ func Lang(userID string, message string, discord *discordgo.Session, channelID s
 
 	_, err := language.Parse(tmp)
 	if err != nil {
-		log.Println("Failed chenge to unknown Language")
+		log.Println("Failed change to unknown Language")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	_, _, err = Config(userID, tmp, 0)
 	if err != nil {
-		log.Println("Failed chenge lang")
+		log.Println("Failed change lang")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -537,7 +537,7 @@ func Limit(session *SessionData, message string, discord *discordgo.Session, cha
 
 	tmp_limit, err := strconv.Atoi(tmp)
 	if err != nil {
-		log.Println("Failed chenge string to int")
+		log.Println("Failed change string to int")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
