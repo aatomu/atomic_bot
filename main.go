@@ -354,9 +354,14 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	}
 
 	//text cut
-	length := len(text)
-	if length > session.speechLimit {
-		text = string([]rune(text)[:session.speechLimit])
+	limit := session.speechLimit
+	nowCount := 0
+	read := ""
+	for _, text := range strings.Split(text, "") {
+		if nowCount < limit {
+			read = read + text
+			nowCount++
+		}
 	}
 
 	//改行停止
@@ -369,7 +374,7 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	session.mut.Lock()
 	defer session.mut.Unlock()
 
-	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=32&client=tw-ob&q=%s&tl=%s", url.QueryEscape(text), lang)
+	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=32&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), lang)
 	err = playAudioFile(speed, pitch, session, voiceURL)
 	if err != nil {
 		log.Printf("Error:%s voiceURL:%s", err, voiceURL)
