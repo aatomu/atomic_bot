@@ -145,20 +145,32 @@ func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
+
 }
 
 //BOTの準備が終わったときにCall
 func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 	clientID = discord.State.User.ID
-	servers := 0
-	for _, _ = range discord.State.Guilds {
-		servers++
-	}
-	discord.UpdateStatus(0, *prefix+" help | "+strconv.Itoa(servers)+"個の鯖で稼働中")
 }
 
 //メッセージが送られたときにCall
 func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
+	//botのステータスアップデート
+	joinedServer := 0
+	for _, _ = range discord.State.Guilds {
+		joinedServer++
+	}
+	joinedVC := 0
+	for _, _ = range sessions {
+		joinedVC++
+	}
+	VC := ""
+	if joinedVC != 0 {
+		VC = " " + strconv.Itoa(joinedVC) + "鯖でお話し中"
+	}
+	state := *prefix + " help | " + strconv.Itoa(joinedServer) + "鯖で稼働中" + VC
+	discord.UpdateStatus(0, state)
+
 	//一時変数
 	guildID := m.GuildID
 	guildData, _ := discord.Guild(guildID)
