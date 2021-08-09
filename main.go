@@ -252,17 +252,15 @@ func Prefix(message, check string) bool {
 	return strings.HasPrefix(message, *prefix+" "+check)
 }
 
-func Join(ChannelID string, GuildID string, discord *discordgo.Session, AuthorID string, Message string) {
-	if voiceConection, err := joinUserVoiceChannel(discord, AuthorID); err != nil {
-		log.Println("missing join vc")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+func Join(channelID string, guildID string, discord *discordgo.Session, authorID string, messageID string) {
+	if voiceConection, err := joinUserVoiceChannel(discord, authorID); err != nil {
+		log.Println("Error : Failed join vc")
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	} else {
 		session := &SessionData{
-			guildID:     GuildID,
-			channelID:   ChannelID,
+			guildID:     guildID,
+			channelID:   channelID,
 			vcsession:   voiceConection,
 			speechSpeed: 1.5,
 			speechLimit: 100,
@@ -270,9 +268,7 @@ func Join(ChannelID string, GuildID string, discord *discordgo.Session, AuthorID
 			mut:         sync.Mutex{},
 		}
 		sessions = append(sessions, session)
-		if err := discord.MessageReactionAdd(ChannelID, Message, "✅"); err != nil {
-			log.Println(err)
-		}
+		addReaction(discord, channelID, messageID, "✅")
 		Speech("BOT", session, "おはー")
 		return
 	}
@@ -391,46 +387,37 @@ func playAudioFile(UserSpeed float64, session *SessionData, filename string) err
 	}
 }
 
-func Speed(UserID string, Content string, discord *discordgo.Session, ChannelID string, Message string) {
-	tmp := strings.Replace(Content, *prefix+" speed ", "", 1)
+func Speed(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
+	tmp := strings.Replace(message, *prefix+" speed ", "", 1)
 
 	tmp_speed, err := strconv.ParseFloat(tmp, 64)
 	if err != nil {
-		log.Println("missing chenge string to float64")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		log.Println("Failed chenge string to float64")
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	if tmp_speed < 0.5 || 5 < tmp_speed {
-		log.Println("missing lowest or highest speed")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		log.Println("Failed lowest or highest speed")
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
-	_, _, err = Config(UserID, "", tmp_speed)
+	_, _, err = Config(userID, "", tmp_speed)
 	if err != nil {
-		log.Println(err)
-		log.Println("missing chenge speed")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		log.Println("Failed chenge speed")
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
-	if err := discord.MessageReactionAdd(ChannelID, Message, "🔊"); err != nil {
-		log.Println(err)
-	}
+	addReaction(discord, channelID, messageID, "🔊")
 	return
 }
 
-func Lang(UserID string, Content string, discord *discordgo.Session, ChannelID string, Message string) {
-	tmp := strings.Replace(Content, *prefix+" lang ", "", 1)
+func Lang(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
+	tmp := strings.Replace(message, *prefix+" lang ", "", 1)
 
 	if tmp == "auto" {
-		_, _, err := Config(UserID, tmp, 0)
+		_, _, err := Config(userID, tmp, 0)
 		if err != nil {
 			log.Println(err)
 		}
@@ -439,25 +426,19 @@ func Lang(UserID string, Content string, discord *discordgo.Session, ChannelID s
 
 	_, err := language.Parse(tmp)
 	if err != nil {
-		log.Println("missing chenge to unknown Language")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		log.Println("Failed chenge to unknown Language")
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
-	_, _, err = Config(UserID, tmp, 0)
+	_, _, err = Config(userID, tmp, 0)
 	if err != nil {
-		log.Println(err)
-		log.Println("missing chenge lang")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		log.Println("Failed chenge lang")
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
-	if err := discord.MessageReactionAdd(ChannelID, Message, "🗣️"); err != nil {
-		log.Println(err)
-	}
+
+	addReaction(discord, channelID, messageID, "🗣️")
 	return
 }
 
@@ -551,54 +532,46 @@ func Config(UserID string, UserLang string, UserSpeed float64) (string, float64,
 	return langTmp, speedTmp, nil
 }
 
-func Limit(session *SessionData, Content string, discord *discordgo.Session, ChannelID string, Message string) {
-	tmp := strings.Replace(Content, *prefix+" limit ", "", 1)
+func Limit(session *SessionData, message string, discord *discordgo.Session, channelID string, messageID string) {
+	tmp := strings.Replace(message, *prefix+" limit ", "", 1)
 
 	tmp_limit, err := strconv.Atoi(tmp)
 	if err != nil {
-		log.Println("missing chenge string to int")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		log.Println("Failed chenge string to int")
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	if tmp_limit <= 0 {
-		log.Println("missing lowest limit")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		log.Println("Failed lowest limit")
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
+
 	session.speechLimit = tmp_limit
-	if err := discord.MessageReactionAdd(ChannelID, Message, "🥺"); err != nil {
-		log.Println(err)
-	}
+	addReaction(discord, channelID, messageID, "🥺")
 	return
 }
 
-func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID string, Message string) {
-	tmp := strings.Replace(Content, *prefix+" word ", "", 1)
+func Word(message string, guildID string, discord *discordgo.Session, channelID string, messageID string) {
+	tmp := strings.Replace(message, *prefix+" word ", "", 1)
 
 	if strings.Count(tmp, ",") != 1 {
 		log.Println("unknown word")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	//ファイルの指定
-	fileName := "./dic/" + GuildID + ".txt"
+	fileName := "./dic/" + guildID + ".txt"
 	//ファイルがあるか確認
 	_, err := os.Stat(fileName)
 	//ファイルがなかったら作成
 	if os.IsNotExist(err) {
 		_, err = os.Create(fileName)
 		if err != nil {
-			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-				log.Println(err)
-			}
+			log.Println("Failed create File")
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
 	}
@@ -606,10 +579,8 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 	//読み込み
 	text_tmp, err := ioutil.ReadFile(fileName)
 	if err != nil {
-		log.Println(err)
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		log.Println("Failed read File")
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
@@ -626,27 +597,22 @@ func Word(Content string, GuildID string, discord *discordgo.Session, ChannelID 
 	//書き込み
 	err = ioutil.WriteFile(fileName, []byte(text), 0777)
 	if err != nil {
-		log.Println(err)
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		log.Println("Failed write File")
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
-	if err := discord.MessageReactionAdd(ChannelID, Message, "📄"); err != nil {
-		log.Println(err)
-	}
+
+	addReaction(discord, channelID, messageID, "📄")
 	return
 }
 
-func Leave(session *SessionData, discord *discordgo.Session, ChannelID string, Message string, Reaction bool) {
+func Leave(session *SessionData, discord *discordgo.Session, channelID string, messageID string, reaction bool) {
 	Speech("BOT", session, "さいなら")
 
 	if err := session.vcsession.Disconnect(); err != nil {
-		log.Println("missing disconnect")
-		if Reaction {
-			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-				log.Println(err)
-			}
+		log.Println("Failed disconnect")
+		if reaction {
+			addReaction(discord, channelID, messageID, "❌")
 		}
 		return
 	} else {
@@ -658,28 +624,24 @@ func Leave(session *SessionData, discord *discordgo.Session, ChannelID string, M
 			ret = append(ret, v)
 		}
 		sessions = ret
-		if Reaction {
-			if err := discord.MessageReactionAdd(ChannelID, Message, "⛔"); err != nil {
-				log.Println(err)
-			}
+		if reaction {
+			addReaction(discord, channelID, messageID, "⛔")
 		}
 		return
 	}
 }
 
-func Poll(Content string, Author string, discord *discordgo.Session, ChannelID string, Message string) {
+func Poll(message string, author string, discord *discordgo.Session, channelID string, messageID string) {
 	//複数?あるか確認
-	if strings.Contains(Content, ",") == false {
+	if strings.Contains(message, ",") == false {
 		log.Println("unknown word")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	//長さ確認
 	replace := regexp.MustCompile(*prefix + " poll|,$")
-	poll := replace.ReplaceAllString(Content, "")
+	poll := replace.ReplaceAllString(message, "")
 	text := strings.Split(poll, ",")
 	//Title+Questionだから-1
 	length := len(text) - 1
@@ -696,7 +658,7 @@ func Poll(Content string, Author string, discord *discordgo.Session, ChannelID s
 			Author:      &discordgo.MessageEmbedAuthor{Name: ""},
 		}
 		//作成者表示
-		embed.Author.Name = "create by @" + Author
+		embed.Author.Name = "create by @" + author
 		//Titleの設定
 		embed.Title = text[0]
 		//中身の設定
@@ -706,46 +668,38 @@ func Poll(Content string, Author string, discord *discordgo.Session, ChannelID s
 		}
 		embed.Description = Question
 		//送信
-		message, err := discord.ChannelMessageSendEmbed(ChannelID, embed)
+		message, err := discord.ChannelMessageSendEmbed(channelID, embed)
 		if err != nil {
 			log.Println(err)
 		}
 		//リアクションと中身の設定
 		for i := 1; i < len(text); i++ {
 			Question = Question + alphabet[i] + text[i] + "\n"
-			if err := discord.MessageReactionAdd(ChannelID, message.ID, alphabet[i]); err != nil {
-				log.Println(err)
-			}
+			addReaction(discord, channelID, message.ID, alphabet[i])
 		}
 	} else {
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		addReaction(discord, channelID, messageID, "❌")
 	}
 }
 
-func Role(Content string, Author string, discord *discordgo.Session, ChannelID string, Message string) {
+func Role(message string, author string, discord *discordgo.Session, channelID string, messageID string) {
 	//複数?あるか確認
-	if strings.Contains(Content, ",") == false {
+	if strings.Contains(message, ",") == false {
 		log.Println("unknown word")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	//roleが指定されてるか確認
-	if strings.Contains(Content, "<@&") == false {
+	if strings.Contains(message, "<@&") == false {
 		log.Println("unknown command")
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	//長さ確認
 	replace := regexp.MustCompile(*prefix + " role|,$")
-	role := replace.ReplaceAllString(Content, "")
+	role := replace.ReplaceAllString(message, "")
 	text := strings.Split(role, ",")
 	//Title+Questionだから-1
 	length := len(text) - 1
@@ -762,7 +716,7 @@ func Role(Content string, Author string, discord *discordgo.Session, ChannelID s
 			Author:      &discordgo.MessageEmbedAuthor{Name: ""},
 		}
 		//作成者表示
-		embed.Author.Name = "create by @" + Author
+		embed.Author.Name = "create by @" + author
 		//Titleの設定
 		embed.Title = text[0]
 		//中身の設定
@@ -772,21 +726,17 @@ func Role(Content string, Author string, discord *discordgo.Session, ChannelID s
 		}
 		embed.Description = Question
 		//送信
-		message, err := discord.ChannelMessageSendEmbed(ChannelID, embed)
+		message, err := discord.ChannelMessageSendEmbed(channelID, embed)
 		if err != nil {
 			log.Println(err)
 		}
 		//リアクションと中身の設定
 		for i := 1; i < len(text); i++ {
 			Question = Question + alphabet[i] + text[i] + "\n"
-			if err := discord.MessageReactionAdd(ChannelID, message.ID, alphabet[i]); err != nil {
-				log.Println(err)
-			}
+			addReaction(discord, channelID, message.ID, alphabet[i])
 		}
 	} else {
-		if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-			log.Println(err)
-		}
+		addReaction(discord, channelID, messageID, "❌")
 	}
 }
 
