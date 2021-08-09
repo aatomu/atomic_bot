@@ -190,24 +190,10 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		Join(ChannelID, GuildID, discord, AuthorID, Message)
 		return
 	case Prefix(Content, "speed "):
-		session, err := GetByGuildID(GuildID)
-		if err != nil || session.channelID != ChannelID {
-			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-				log.Println(err)
-			}
-			return
-		}
-		Speed(AuthorID, session, Content, discord, ChannelID, Message)
+		Speed(AuthorID, Content, discord, ChannelID, Message)
 		return
 	case Prefix(Content, "lang "):
-		session, err := GetByGuildID(GuildID)
-		if err != nil || session.channelID != ChannelID {
-			if err := discord.MessageReactionAdd(ChannelID, Message, "❌"); err != nil {
-				log.Println(err)
-			}
-			return
-		}
-		Lang(AuthorID, session, Content, discord, ChannelID, Message)
+		Lang(AuthorID, Content, discord, ChannelID, Message)
 		return
 	case Prefix(Content, "limit "):
 		session, err := GetByGuildID(GuildID)
@@ -409,7 +395,7 @@ func playAudioFile(UserSpeed float64, session *SessionData, filename string) err
 	}
 }
 
-func Speed(UserID string, session *SessionData, Content string, discord *discordgo.Session, ChannelID string, Message string) {
+func Speed(UserID string, Content string, discord *discordgo.Session, ChannelID string, Message string) {
 	tmp := strings.Replace(Content, *prefix+" speed ", "", 1)
 
 	tmp_speed, err := strconv.ParseFloat(tmp, 64)
@@ -439,7 +425,7 @@ func Speed(UserID string, session *SessionData, Content string, discord *discord
 	return
 }
 
-func Lang(UserID string, session *SessionData, Content string, discord *discordgo.Session, ChannelID string, Message string) {
+func Lang(UserID string, Content string, discord *discordgo.Session, ChannelID string, Message string) {
 	tmp := strings.Replace(Content, *prefix+" lang ", "", 1)
 
 	if tmp == "auto" {
@@ -518,7 +504,7 @@ func Config(UserID string, UserLang string, UserSpeed float64) (string, float64,
 			}
 		} else {
 			if lines != "" {
-				writeText = writeText + "\n" + lines
+				writeText = writeText + lines + "\n"
 			}
 		}
 	}
@@ -529,23 +515,23 @@ func Config(UserID string, UserLang string, UserSpeed float64) (string, float64,
 	if UserLang != "" || UserSpeed != 0 {
 		Write = true
 	}
-	if langTmp == "" || Write == true {
-		langTmp = "auto"
+	if Write {
+		//lang
+		if langTmp == "" {
+			langTmp = "auto"
+		}
 		if UserLang != "" {
 			langTmp = UserLang
 		}
-		Write = true
-	}
-	if speedTmp == 0 || Write == true {
-		speedTmp = 1.0
+		//speed
+		if speedTmp == 0 {
+			speedTmp = 1.0
+		}
 		if UserSpeed != 0 {
 			speedTmp = UserSpeed
 		}
-		Write = true
-	}
-	if Write {
 		//最後に書き込むテキストを追加(Write==trueの時)
-		writeText = writeText + "\n" + UserID + ":" + langTmp + "," + strconv.FormatFloat(speedTmp, 'f', -1, 64)
+		writeText = writeText + UserID + ":" + langTmp + "," + strconv.FormatFloat(speedTmp, 'f', -1, 64)
 		//書き込み
 		err = ioutil.WriteFile(fileName, []byte(writeText), 0777)
 		if err != nil {
