@@ -884,14 +884,17 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 	}
 
 	//文字数を制限
-	length := len(message)
-	if length > 20 {
-		message = string([]rune(message)[:20])
-		message = message + ".."
+	nowCount := 0
+	logText := ""
+	for _, word := range strings.Split(message, "") {
+		if nowCount < 20 {
+			logText = logText + word
+			nowCount++
+		}
 	}
 
 	//ログを表示
-	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + message + "  User:" + user + "  Add:" + emoji)
+	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + logText + "  User:" + user + "  Add:" + emoji)
 
 	//embedがあるか確認
 	if len(messageData.Embeds) == 0 {
@@ -966,14 +969,17 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 	}
 
 	//文字数を制限
-	length := len(message)
-	if length > 20 {
-		message = string([]rune(message)[:20])
-		message = message + ".."
+	nowCount := 0
+	logText := ""
+	for _, word := range strings.Split(message, "") {
+		if nowCount < 20 {
+			logText = logText + word
+			nowCount++
+		}
 	}
 
 	//ログを表示
-	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + message + "  User:" + user + "  Remove:" + emoji)
+	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + logText + "  User:" + user + "  Remove:" + emoji)
 
 	//embedがあるか確認
 	if len(messageData.Embeds) == 0 {
