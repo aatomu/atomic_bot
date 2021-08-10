@@ -1,60 +1,3 @@
-//MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM"""""` `` `` `` `` 7""""MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMY""!` `` ``` ` ` ` `  ` `````` `` .""TMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM@"^` `  ` ` ` `  `` `` ` `` `   `  ` `` ` ` `,"WMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMMMMMMMMM#"=` `` ` `` ` ` ` ``  ` ` `` `` `` `` ``  `` `` ``` ?"MMMMMMMMMMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMMMMMMM""` ` ` ` `` `` `` ` `` ``  ` `  ` ` `  `  `   `   ` ```` ?"MMMMMMMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMMMM""` ` ` ` ` ` `  ` ` ` `  `` `` ` `` ` `  `  ` ``  ` ` `  ` ````7"MMMMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMM" ` `` `` `` ` ` `` ` ` ` ``  ` `` ` `` ` `` ``  ` `` ` ` ` ` `  ``  "MMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMY"``` ` ` ` ` `` `` ` ` `` ` `` ``  ``  ` ``  `  ` ` `  ` ` ``` ` ` ` ``` "7MMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMP!```  ` ` ` ` `` ` `` ` ` `` `  `` `` `` ` ` `  `  ` `` ` `` ` ` `` `     ` `.TMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMM%``  `` `` `` ``.g2`  ` `` `  ` ``  ` `  `` ` ` `` ` ` ` `` ` `.g/` `` `` `  `` `,MMMMMMMMMMMMMM
-//MMMMMMMMMMMMF'` ` ` `` ` ` ``.gMN2`` ` ` `` ` `` `` `` ` ` ``  `  ` ` ` `` `.dMN;` `  `` ` ` ` `.4MMMMMMMMMMMM
-//MMMMMMMMMMF^``` `` `  ` ` ` .gMMMNc`` ` ` `` `  ``  ` ` ` ` ``  ` ` `` ` ``.dMMMN, ``  ` `` ` ` ``,4MMMMMMMMMM
-//MMMMMMMMMF^  ` `  ` `` ` ``.gMMMMMNc`` ` ` ` `` ` `` ` ` ``  ` ` `   ` ` `.dMMMMMN,`` ` ` `  ` `   ,UMMMMMMMMM
-//MMMMMMMMF`` ` `` ` ` `` ` .gMMMMMMMN;`` ` ` ` `` ` `` `` ` `` ` ` `` `` `.dMMMMMMMN- `` `` ` `  ` `` JMMMMMMMM
-//MMMMMM#^` `` ` `` `  ` ``.gMMMMMMMMMN; ` ` `  ` ` `  ` ` `` `  `  ` ` ``.gMMMMMMMMMN-` ` `` ` ` `  ```(HMMMMMM
-//MMMMM#^` `  ` `  ` `` ` .gMMMMMMMMMMMN<`` ``` `` `` `` `  ` `` ``  ` ` .gMMMMMMMMMMMN_``  `  ` ` ` `  `~MMMMMM
-//MMMM#^``  `  ` `` ` ``  gMMMMMMMMMMMMMN-``  `` ` ` ` `` `` ` ` ```` ``.gMMMMMMMMMMMMMN_ `` ``  `  `` ` `?MMMMM
-//MMM#!` ` `` `` `` ``   gMMMMMMMMMMMMMMMN- ``  ` ` ` `  ` `` ` `  ` ` .gMMMMMMMMMMMMMMMN ` ``  ` `  `` `` ?MMMM
-//MMM@` ``  `  `  ` ````gMMMMMMMMMMMMMMMMMN_` `` ` `` `` `  ` `` ` `` .gMMMMMMMMMMMMMMMMMg`` ` ` ` ` ` ` ```MMMM
-//MMN `` ` ` ` `` ``  `gMMMMMMMMMMMMMMMMMMMN.` `` ` `  `` `` ` `` ``  gMMMMMMMMMMMMMMMMMMMm ` ` ` ` ` ` `  ` MMM
-//MM!`  ``  ` `  ` ` `gMMMMMMMMMMMMMMMMMMMMMN `  `` `` ` ` `` `  ` ` NMMMMMMMMMMMMMMMMMMMMMm``  `  ` ` `  `  ?MM
-//MN `` `` `  ` `` ``qMMMMMMMMMMMMMMMMMMMMMMMN`` ` ` `` ` ` ` `` `` NMMMMMMMMMMMMMMMMMMMMMMMm` ` `  `  ` ` ` `MM
-//M!` ` ` ` `` ` `  `????????????????????????? ``.NNNNNNNNNNNNNN-` `????????????????????????! `  `` ` ` ` ` ``?M
-//M` ` ` `  `  ` `` ``` `  `  `  `  `  `` `` `` .NMMMMMMMMMMMMMMN_` `` `  `  `  `  `  ` `  `` ` `  ` ` `  `  ` M
-//M`` ` `` ` `  ` `  ` ` `  `` ` `` ``  `  ` ` `.MMMMMMMMMMMMMMMM!`  `  `  `  `  `  `  ` `  `  ` `  `  ` ` ` ``M
-//` `` ` `` ` `` ` `  ` ``` `` ` ` ` ``` ` `` ` .MMMMMMMMMMMMMMMM!`` ` ` `` `` `` `` ``  ``  ` `  `` `  ` `  ```
-//` ` ` `  `  ` ` ` `` `  `  `  ` ` `  `` ` ` ` .MMMMMMMMMMMMMMMM!` ``  `  `  `  `  `  `  ` ` ` ` `  `` `  `  `
-// ` ` `` ` `  ` `` ` `` ` `` `` `` ``  `` ` `` .MMMMMMMMMMMMMMMM!`  ` ` `  `  `  `  ` ``  ` ` ` `  `  ` ` `` `
-// ` `  ` ` `` `  `  `  ` ` `  ` ` ` `` `  `` ` .MMMMMMMMMMMMMMMM!`` ` ` `` `` `` `` `  ` `  `  ` `` `  ` `  ` `
-//`  ` `  `  ` `` ` ` `` `  ``  ` `  ` `` ` ` ``.MMMMMMMMMMMMMMMM!`` `  `  `  `  `  ` `  ` `  ` `   ` ` `  `  `
-// ` ` `` ` `  ` `` ` ` ` ` `` `` `` `` `` ` ` `.MMMMMMMMMMMMMMMM!` `` `  `  `  `  ` ` ` ` `` `  ` ` ` ` ` ``  `
-//` ``  `` ` `  `  ` `` `` ` ` ` ` ` `  `  `` ` .MMMMMMMMMMMMMMMM!` ` ` `` `` `` ``  `` ` `  ` `` `` `  ` `  ``
-//N`` `` `  ` `` ``` `....NNNNNNNNNNNNNNNNNNNNNNMMMMMMMMMMMMMMMMMNNNNNNNNNNNNNNNNNNNNNNN-...`` `` ` ` ` `  ` ``N
-//M `` ` `` `  ` ``.dNMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMNN,` ` ` ` ` ` ` ``M
-//M. ` ``  ` ` `  `dMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM# `` ``  `  ` ``.M
-//MN``  ``  ` ` `` dMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM#` `` `` `` `  `MM
-//MN.` ` `` `  ` ``dMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM#` `  ` ` `` ``.MM
-//MMN `` ` ` ` `  `dMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM#``  ` ` ` `` `MMM
-//MMM# `` ` ` ` ` `dMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM# `` `` ` ``` dMMM
-//MMMN, `` ` ` ``` dMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM#` `` ` ``  `.MMMM
-//MMMMN,` ` `` ` ` dMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM#``  ` ` ` `.dMMMM
-//MMMMMN,` `` ` ` `TMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM5 `` `` ` `.dMMMMM
-//MMMMMMN,` `` ``` `MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM#`  `` ` ``.dMMMMMM
-//MMMMMMMMF` `  ` ` MMMMMMMMMMMMMMMM]`` `` ` ` ` ` ` ` ` ` ` ` `  `  ` `` `` ,MMMMMMMMMMMMMMM#` ` ` `` JMMMMMMMM
-//MMMMMMMMMh,`` ` ``MMMMMMMMMMMMMMMM]` `  ` ` ` ` ` ` ` ` ` ` ` `  `  `  `  `,MMMMMMMMMMMMMMM# `` `` .(MMMMMMMMM
-//MMMMMMMMMMh, ``  `MMMMMMMMMMMMMMMM] ` `` `` `` `` `` `` `` `` `` ``  `` `` ,MMMMMMMMMMMMMMM#` ``  .(MMMMMMMMMM
-//MMMMMMMMMMMMh,`` `MMMMMMMMMMMMMMMM]`` `` ` `  ` ``  ` ``  ` `   `  ` `  `  ,MMMMMMMMMMMMMMM#`  `.-MMMMMMMMMMMM
-//MMMMMMMMMMMMMM]`` MMMMMMMMMMMMMMMM] `  ` ` `` `  `` `  ` `` `` ` ` ` `` ```,MMMMMMMMMMMMMMM#```,MMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMa,`TMMMMMMMMMMMMMM]` `` ` `` ` `` ` ``` ` ` `  ` ` ` ` `` ` `(MMMMMMMMMMMMMM5 ..MMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMa-T"MMMMMMMMMM#t` ` `` `  ` ` `` `  `` ` `` `  `  ` `  ` ` `-WMMMMMMMMMM"5--MMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMM+ ` `` `` `` `` ` ` `` `` ` ` ` ` ` `` `` `` `  `` `` `` `` `` ` ` ` (MMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMMMM(. `` ` ` ` ` `` ` `` ` `` ` `` ``  ` `   ` ` ` ` `` `  ``` ``` ((MMMMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMMMMMMN(,` `` `` ` ` `  ` `  ` ``  ` ` ` ` ` ` ` ` ` `  ` ``  `` .(MMMMMMMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMMMMMMMMMN(,`` ` `` ` `` ` `` ` ` `` ` `` `` `  ` ` `` ``` `` .(dMMMMMMMMMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMN(,` `` ` `` ` `` ` ` `` ` ` `  ` `  ` ` `` `.(JMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMmJJ,` `` ` ` `` `  ` ` ` `` ```` `.JJJMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-//MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM+JJJJ` ` `` ` `` ``(JJJJMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 package main
 
 import (
@@ -518,29 +461,11 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 	//ファイルパスの指定
 	fileName := "./UserConfig.txt"
 
-	//ファイルがあるか確認
-	_, err := os.Stat(fileName)
-	//ファイルがなかったら作成
-	if os.IsNotExist(err) {
-		_, err = os.Create(fileName)
-		if err != nil {
-			log.Println(err)
-			returnErr = fmt.Errorf("missing crate file")
-			return
-		}
-	}
-
-	//読み込み
-	byteText, err := ioutil.ReadFile(fileName)
+	text, err := readFile(fileName)
 	if err != nil {
 		log.Println(err)
-		returnErr = fmt.Errorf("missing read file")
 		return
 	}
-
-	//[]byteをstringに
-	text := string(byteText)
-
 	//UserIDからデータを入手
 	for _, line := range strings.Split(text, "\n") {
 		if strings.Contains(line, "UserID:"+userID) {
@@ -643,27 +568,12 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	//ファイルの指定
 	fileName := "./dic/" + guildID + ".txt"
 	//ファイルがあるか確認
-	_, err = os.Stat(fileName)
-	//ファイルがなかったら作成
-	if os.IsNotExist(err) {
-		_, err = os.Create(fileName)
-		if err != nil {
-			log.Println("Failed create File")
-			addReaction(discord, channelID, messageID, "❌")
-			return
-		}
-	}
-
-	//読み込み
-	byteText, err := ioutil.ReadFile(fileName)
+	text, err := readFile(fileName)
 	if err != nil {
-		log.Println("Failed read File")
+		log.Println(err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
-
-	//[]byteをstringに
-	text := string(byteText)
 
 	//textをにダブりがないかを確認&置換
 	replace := regexp.MustCompile(`,.*`)
@@ -1050,4 +960,30 @@ func addReaction(discord *discordgo.Session, channelID string, messageID string,
 		log.Print("Error: addReaction Failed")
 		log.Println(err)
 	}
+}
+
+func readFile(filePath string) (text string, returnErr error) {
+	//ファイルがあるか確認
+	_, err := os.Stat(filePath)
+	//ファイルがなかったら作成
+	if os.IsNotExist(err) {
+		_, err = os.Create(filePath)
+		if err != nil {
+			log.Println(err)
+			returnErr = fmt.Errorf("missing crate file")
+			return
+		}
+	}
+
+	//読み込み
+	byteText, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		log.Println(err)
+		returnErr = fmt.Errorf("missing read file")
+		return
+	}
+
+	//[]byteをstringに
+	text = string(byteText)
+	return
 }
