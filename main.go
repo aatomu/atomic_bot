@@ -165,14 +165,8 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 
 func botStateUpdate(discord *discordgo.Session) {
 	//botのステータスアップデート
-	joinedServer := 0
-	for _, _ = range discord.State.Guilds {
-		joinedServer++
-	}
-	joinedVC := 0
-	for _, _ = range sessions {
-		joinedVC++
-	}
+	joinedServer := len(discord.State.Guilds)
+	joinedVC := len(sessions)
 	VC := ""
 	if joinedVC != 0 {
 		VC = " " + strconv.Itoa(joinedVC) + "鯖でお話し中"
@@ -541,10 +535,14 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 	writeText := ""
 
 	//UserIDからデータを入手
-	for _, lines := range strings.Split(text, "\n") {
-		if strings.Contains(lines, userID+":") {
+	for _, line := range strings.Split(text, "\n") {
+		if strings.Contains(line, "UserID:"+userID) {
+			log.Println(line)
+			_, err := fmt.Sscanf(line, "UserID:"+userID+" Lang:%s, Speed:%s, Pitch:%f,", &lang, &speed, &pitch)
+			log.Println(err)
+			log.Println("lang:" + lang + " speed:" + strconv.FormatFloat(speed, 'f', -1, 64) + " pitch" + strconv.FormatFloat(pitch, 'f', -1, 64))
 			replace := regexp.MustCompile(userID + ":")
-			line := replace.ReplaceAllString(lines, "")
+			line := replace.ReplaceAllString(line, "")
 			array := strings.Split(line, ",")
 			arrayLength := len(array)
 			if arrayLength > 1 {
@@ -563,22 +561,22 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 				}
 			}
 		} else {
-			if lines != "" {
-				writeText = writeText + lines + "\n"
+			if line != "" {
+				writeText = writeText + line + "\n"
 			}
 		}
 	}
 
 	//書き込みチェック用変数
-	Write := false
+	shouldWrite := false
 	//上書き もしくはデータ作成
 	if userLang != "" || userSpeed != 0 || userPitch != 0 {
-		Write = true
+		shouldWrite = true
 	}
 	if lang == "" || speed == 0 || pitch == 0 {
-		Write = true
+		shouldWrite = true
 	}
-	if Write {
+	if shouldWrite {
 		//lang
 		if lang == "" {
 			lang = "auto"
