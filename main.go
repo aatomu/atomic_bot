@@ -628,10 +628,22 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 		return
 	}
 
+	//フォルダがあるか確認
+	_, err := os.Stat("./dic")
+	//ファイルがなかったら作成
+	if os.IsNotExist(err) {
+		err = os.Mkdir("./dic", 0777)
+		if err != nil {
+			log.Println("Failed create directory")
+			addReaction(discord, channelID, messageID, "❌")
+			return
+		}
+	}
+
 	//ファイルの指定
 	fileName := "./dic/" + guildID + ".txt"
 	//ファイルがあるか確認
-	_, err := os.Stat(fileName)
+	_, err = os.Stat(fileName)
 	//ファイルがなかったら作成
 	if os.IsNotExist(err) {
 		_, err = os.Create(fileName)
