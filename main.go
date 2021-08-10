@@ -849,22 +849,28 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 //VCでJoin||Leaveが起きたときにCall
 func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 
-	//すべての鯖をfor
+	//セッションがあるか確認
+	session, err := GetByGuildID(v.GuildID)
+	if err != nil {
+		return
+	}
+
+	//VCに接続があるか確認
+	if session.vcsession == nil || !session.vcsession.Ready {
+		return
+	}
+
+	// ボイスチャンネルに誰かしらいたら return
 	for _, guild := range discord.State.Guilds {
-		users := []string{}
-		//その中のVCをfor
 		for _, vs := range guild.VoiceStates {
-			users = append(users, vs.UserID)
-		}
-		//一人しかいなかったらleave
-		if len(users) == 1 {
-			session, err := GetByGuildID(v.GuildID)
-			if err != nil {
+			if session.vcsession.ChannelID == vs.ChannelID && vs.UserID != clientID {
 				return
 			}
-			leaveVoiceChat(session, discord, "", "", false)
 		}
 	}
+
+	// ボイスチャンネルに誰もいなかったら Disconnect する
+	leaveVoiceChat(session, discord, "", "", false)
 }
 
 //リアクション追加でCall
