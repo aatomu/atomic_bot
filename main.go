@@ -498,10 +498,21 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 	return
 }
 
-func userConfig(userID string, userLang string, userSpeed float64, userPitch float64) (string, float64, float64, error) {
+func userConfig(userID string, userLang string, userSpeed float64, userPitch float64) (lang string, speed float64, pitch float64, returnErr error) {
+	//変数定義
+	lang = ""
+	speed = 0.0
+	pitch = 0.0
+	returnErr = nil
+	writeText := ""
+
 	//BOTチェック
 	if userID == "BOT" {
-		return "ja", 1.75, 1, nil
+		lang = "ja"
+		speed = 1.75
+		pitch = 1
+		returnErr = nil
+		return
 	}
 
 	//ファイルパスの指定
@@ -514,52 +525,26 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 		_, err = os.Create(fileName)
 		if err != nil {
 			log.Println(err)
+			returnErr = fmt.Errorf("missing crate file")
+			return
 		}
-		return "", 0, 0, fmt.Errorf("missing crate file")
 	}
 
 	//読み込み
 	byteText, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		log.Println(err)
-		return "", 0, 0, fmt.Errorf("missing read file")
+		returnErr = fmt.Errorf("missing read file")
+		return
 	}
 
 	//[]byteをstringに
 	text := string(byteText)
 
-	//変数定義
-	lang := ""
-	speed := 0.0
-	pitch := 0.0
-	writeText := ""
-
 	//UserIDからデータを入手
 	for _, line := range strings.Split(text, "\n") {
 		if strings.Contains(line, "UserID:"+userID) {
-			log.Println(line)
-			_, err := fmt.Sscanf(line, "UserID:"+userID+" Lang:%s, Speed:%s, Pitch:%f,", &lang, &speed, &pitch)
-			log.Println(err)
-			log.Println("lang:" + lang + " speed:" + strconv.FormatFloat(speed, 'f', -1, 64) + " pitch" + strconv.FormatFloat(pitch, 'f', -1, 64))
-			replace := regexp.MustCompile(userID + ":")
-			line := replace.ReplaceAllString(line, "")
-			array := strings.Split(line, ",")
-			arrayLength := len(array)
-			if arrayLength > 1 {
-				lang = array[0]
-			}
-			if arrayLength > 2 {
-				speed, err = strconv.ParseFloat(array[1], 64)
-				if err != nil {
-					return "", 0, 0, fmt.Errorf("Failed change speed string to float")
-				}
-			}
-			if arrayLength > 3 {
-				pitch, err = strconv.ParseFloat(array[2], 64)
-				if err != nil {
-					return "", 0, 0, fmt.Errorf("Failed change pitch string to float")
-				}
-			}
+			fmt.Sscanf(line, "UserID:"+userID+" Lang:%s Speed:%f Pitch:%f", &lang, &speed, &pitch)
 		} else {
 			if line != "" {
 				writeText = writeText + line + "\n"
@@ -570,9 +555,11 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 	//書き込みチェック用変数
 	shouldWrite := false
 	//上書き もしくはデータ作成
+	//(userLang||userSpeed||userPitchが設定済み
 	if userLang != "" || userSpeed != 0 || userPitch != 0 {
 		shouldWrite = true
 	}
+	//(lang||speed||pitch)が入手できなかった時
 	if lang == "" || speed == 0 || pitch == 0 {
 		shouldWrite = true
 	}
@@ -599,15 +586,16 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 			pitch = userPitch
 		}
 		//最後に書き込むテキストを追加(Write==trueの時)
-		writeText = writeText + userID + ":" + lang + "," + strconv.FormatFloat(speed, 'f', -1, 64) + "," + strconv.FormatFloat(pitch, 'f', -1, 64) + ","
+		writeText = writeText + "UserID:" + userID + " Lang:" + lang + " Speed:" + strconv.FormatFloat(speed, 'f', -1, 64) + " Pitch:" + strconv.FormatFloat(pitch, 'f', -1, 64)
 		//書き込み
 		err = ioutil.WriteFile(fileName, []byte(writeText), 0777)
 		if err != nil {
-			return "", 0, 0, err
+			returnErr = err
+			return
 		}
-		log.Println("User userConfig Write")
+		log.Println("User userConfig Writed")
 	}
-	return lang, speed, pitch, nil
+	return
 }
 
 func changeSpeechLimit(session *SessionData, message string, discord *discordgo.Session, channelID string, messageID string) {
