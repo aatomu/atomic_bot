@@ -961,6 +961,7 @@ func addReaction(discord *discordgo.Session, channelID string, messageID string,
 	}
 }
 
+//ファイル読み込み
 func readFile(filePath string) (text string, returnErr error) {
 	//ファイルがあるか確認
 	_, err := os.Stat(filePath)
