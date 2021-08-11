@@ -217,25 +217,26 @@ func prefixCheck(message, check string) bool {
 }
 
 func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session, authorID string, messageID string) {
-	if voiceConection, err := joinUserVoiceChannel(discord, authorID); err != nil {
+	voiceConection, err := joinUserVoiceChannel(discord, authorID)
+	if err != nil {
 		log.Println("Error : Failed join vc")
 		addReaction(discord, channelID, messageID, "❌")
 		return
-	} else {
-		session := &SessionData{
-			guildID:     guildID,
-			channelID:   channelID,
-			vcsession:   voiceConection,
-			speechSpeed: 1.5,
-			speechLimit: 100,
-			speechLang:  "auto",
-			mut:         sync.Mutex{},
-		}
-		sessions = append(sessions, session)
-		addReaction(discord, channelID, messageID, "✅")
-		speechOnVoiceChat("BOT", session, "おはー")
-		return
 	}
+
+	session := &SessionData{
+		guildID:     guildID,
+		channelID:   channelID,
+		vcsession:   voiceConection,
+		speechSpeed: 1.5,
+		speechLimit: 100,
+		speechLang:  "auto",
+		mut:         sync.Mutex{},
+	}
+	sessions = append(sessions, session)
+	addReaction(discord, channelID, messageID, "✅")
+	speechOnVoiceChat("BOT", session, "おはー")
+	return
 }
 
 func joinUserVoiceChannel(discord *discordgo.Session, userID string) (*discordgo.VoiceConnection, error) {
@@ -800,8 +801,7 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 	guild := guildData.Name
 
 	//bot のチェック
-	botCheck, _ := discord.User(userID)
-	if botCheck.Bot {
+	if userData.Bot {
 		return
 	}
 
@@ -885,8 +885,7 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 	guild := guildData.Name
 
 	//bot のチェック
-	botCheck, _ := discord.User(userID)
-	if botCheck.Bot {
+	if userData.Bot {
 		return
 	}
 
