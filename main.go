@@ -229,7 +229,7 @@ func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session,
 		channelID:   channelID,
 		vcsession:   voiceConection,
 		speechSpeed: 1.5,
-		speechLimit: 100,
+		speechLimit: 50,
 		speechLang:  "auto",
 		mut:         sync.Mutex{},
 	}
@@ -534,8 +534,8 @@ func changeSpeechLimit(session *SessionData, message string, discord *discordgo.
 		return
 	}
 
-	if limit <= 0 {
-		log.Println("Failed lowest limit")
+	if limit <= 0 || 50 < limit {
+		log.Println("Failed lowest or highest limit")
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -744,7 +744,7 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 		*prefix + " pitch <0.5-1.5> : 声の高さを変更します(User単位)\n" +
 		*prefix + " lang <言語> : 読み上げ言語を変更します(User単位)\n" +
 		*prefix + " word <元>,<先> : 辞書を登録します(Guild単位)\n" +
-		*prefix + " limit <文字数> : 読み上げ文字数の上限を設定します(Guild単位)\n" +
+		*prefix + " limit <1-50> : 読み上げ文字数の上限を設定します(Guild単位)\n" +
 		*prefix + " leave : VCから切断します\n" +
 		"--Poll--\n" +
 		*prefix + " poll <質問>,<回答1>,<回答2>... : 質問を作成します\n" +
