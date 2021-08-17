@@ -270,8 +270,7 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	}
 
 	if regexp.MustCompile(`<a:|<:|<@|<#|<@&|http|` + "```").MatchString(text) {
-		text = "message skip"
-		return
+		text = "すーきっぷ"
 	}
 
 	//! ? ` { } < >を読み上げない
