@@ -301,6 +301,12 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 		text = replace.ReplaceAllString(text, "")
 	}
 
+	//隠れてるところを読み上げない
+	if strings.Contains(text, "||") {
+		replace := regexp.MustCompile(`\|\|.*\|\|`)
+		text = replace.ReplaceAllString(text, "ピー")
+	}
+
 	//text cut
 	limit := session.speechLimit
 	nowCount := 0
