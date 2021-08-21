@@ -262,13 +262,11 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	scanner := bufio.NewScanner(data)
 	for scanner.Scan() {
 		line := scanner.Text()
-		line = strings.ReplaceAll(line, ".", "")
 		replace := regexp.MustCompile(`,.*`)
 		from := replace.ReplaceAllString(line, "")
 		replace = regexp.MustCompile(`.*,`)
 		to := replace.ReplaceAllString(line, "")
-		replace = regexp.MustCompile(from)
-		text = replace.ReplaceAllString(text, to)
+		text = strings.ReplaceAll(text, from, to)
 	}
 
 	if regexp.MustCompile(`<a:|<:|<@|<#|<@&|http|` + "```").MatchString(text) {
