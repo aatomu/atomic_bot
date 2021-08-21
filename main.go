@@ -257,10 +257,12 @@ func findUserVoiceState(discord *discordgo.Session, userid string) *discordgo.Vo
 
 func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	data, _ := os.Open("./dic/" + session.guildID + ".txt")
+
 	defer data.Close()
 	scanner := bufio.NewScanner(data)
 	for scanner.Scan() {
 		line := scanner.Text()
+		line = strings.ReplaceAll(line, ".", "")
 		replace := regexp.MustCompile(`,.*`)
 		from := replace.ReplaceAllString(line, "")
 		replace = regexp.MustCompile(`.*,`)
