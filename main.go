@@ -295,6 +295,12 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 		}
 	}
 
+	//改行停止
+	if strings.Contains(text, "\n") {
+		replace := regexp.MustCompile(`\n.*`)
+		text = replace.ReplaceAllString(text, "")
+	}
+
 	//text cut
 	limit := session.speechLimit
 	nowCount := 0
@@ -304,12 +310,6 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 			read = read + text
 			nowCount++
 		}
-	}
-
-	//改行停止
-	if strings.Contains(text, "\n") {
-		replace := regexp.MustCompile(`\n.*`)
-		text = replace.ReplaceAllString(text, "")
 	}
 
 	//読み上げ待機
