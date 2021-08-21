@@ -278,10 +278,9 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 		text = "すーきっぷ"
 	}
 
-	//! ? ` { } < >を読み上げない
-	replace := regexp.MustCompile(`!|{|}|<|>`)
+	//! ? { } < >を読み上げない
+	replace := regexp.MustCompile(`!|\?|{|}|<|>|`)
 	text = replace.ReplaceAllString(text, "")
-	text = strings.Replace(text, "?", "", -1)
 
 	lang, speed, pitch, err := userConfig(userID, "", 0, 0)
 	if err != nil {
@@ -304,7 +303,7 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	//隠れてるところを読み上げない
 	if strings.Contains(text, "||") {
 		replace := regexp.MustCompile(`\|\|.*\|\|`)
-		text = replace.ReplaceAllString(text, "ピー")
+		text = replace.ReplaceAllString(text, "ピーーーー")
 	}
 
 	//text cut
