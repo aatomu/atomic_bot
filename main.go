@@ -122,8 +122,13 @@ func botStateUpdate(discord *discordgo.Session) {
 func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	//一時変数
 	guildID := m.GuildID
-	guildData, _ := discord.Guild(guildID)
-	guild := guildData.Name
+	guildData, err := discord.Guild(guildID)
+	guild := ""
+	if err == nil {
+		guild = guildData.Name
+	} else {
+		guild = "DirectMessage"
+	}
 	channelID := m.ChannelID
 	channel, _ := discord.Channel(channelID)
 	messageID := m.ID
