@@ -840,7 +840,8 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 
 	//Roleのやつか確認
 	for _, embed := range messageData.Embeds {
-		if !strings.Contains(embed.Footer.Text, "RoleContoler") {
+		footerData := embed.Footer
+		if footerData == nil || !strings.Contains(embed.Footer.Text, "RoleContoler") {
 			return
 		}
 	}
@@ -924,7 +925,8 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 
 	//Roleのやつか確認
 	for _, embed := range messageData.Embeds {
-		if !strings.Contains(embed.Footer.Text, "RoleContoler") {
+		footerData := embed.Footer
+		if footerData == nil || !strings.Contains(embed.Footer.Text, "RoleContoler") {
 			return
 		}
 	}
