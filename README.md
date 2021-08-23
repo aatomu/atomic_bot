@@ -70,16 +70,20 @@ Golangで自分のために作成
 `<prefix> speed <0.5-5>` : 読み上げ速度を設定します(User単位)  
 `<prefix> pitch <0.5-1.5>` : 声の高さを設定します(User単位)  
 `<prefix> lang <language code || auto` : 読み上げる言語を変更します(User単位)  
-`!tom word <from>,<to>` : 辞書を登録します(Guild単位)  
+`<prefix> word <from>,<to>` : 辞書を登録します(Guild単位)  
 `<prefix> limit <1-50>` : 読み上げる文字数の上限を設定します(Guild単位)  
 `<prefix> leave` : VCから切断します  
   
 ### Poll関連  
- `!tom poll <質問>,<回答1>,<回答2>...` : 質問を作成します
+ `<prefix> poll <質問>,<回答1>,<回答2>...` : 質問を作成します
   
 ### Role関連  
-`!tom role <名前>,@<ロール1>,@<ロール2>...` : ロール管理を作成します*  
+`<prefix> role <名前>,@<ロール1>,@<ロール2>...` : ロール管理を作成します*  
 > *RoleControllerという名前のロールがついている必要があります
+
+### Crossチャット関連  
+`<prefix> crossAdd ` : そのチャンネルをクロスチャットチャンネルにします  
+`<prefix> crossRemove ` : クロスチャットチャンネルを削除します  
 
 ## コード元:  
 Bot Souce Code : https://github.com/takanakahiko/discord-tts  
