@@ -767,8 +767,8 @@ func crossChatAdd(guildID string, channelID string, discord *discordgo.Session) 
 	crossChat[guildID] = channelID
 	//embedの生成
 	embedText := &discordgo.MessageEmbed{
-		Description: "このチャンネルを 連携チャンネルにしました\n" +
-			"現在の連携チャンネル数:" + strconv.Itoa(len(crossChat)) + "\n",
+		Description: "このチャンネルを クロスチャットに接続\n" +
+			"現在のクロスチャット数:" + strconv.Itoa(len(crossChat)) + "\n",
 	}
 	//追加したことを通知するEmbedを送信
 	_, err := discord.ChannelMessageSendEmbed(channelID, embedText)
@@ -783,8 +783,8 @@ func crossChatAdd(guildID string, channelID string, discord *discordgo.Session) 
 			if channelID != sendChannelID {
 				//embedの生成
 				embedText := &discordgo.MessageEmbed{
-					Description: "新しい連携チャンネルができました\n" +
-						"現在の連携チャンネル数:" + strconv.Itoa(len(crossChat)) + "\n",
+					Description: "新しいクロスチャット接続ができました\n" +
+						"現在のクロスチャット数:" + strconv.Itoa(len(crossChat)) + "\n",
 				}
 				//追加したことを通知するEmbedを送信
 				_, err = discord.ChannelMessageSendEmbed(sendChannelID, embedText)
@@ -808,7 +808,7 @@ func crossChatRemove(guildID string, channelID string, discord *discordgo.Sessio
 		delete(crossChat, guildID)
 		//embedの生成
 		embedText := &discordgo.MessageEmbed{
-			Description: "連携 を切断しました\n",
+			Description: "クロスチャット を切断しました\n",
 		}
 		//追加したことを通知するEmbedを送信
 		_, err := discord.ChannelMessageSendEmbed(channelID, embedText)
@@ -885,8 +885,8 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 		"--Role--\n" +
 		*prefix + " role <名前>,@<ロール1>,@<ロール2>... : ロール管理を作成します\n  *RoleControllerという名前のロールがついている必要があります\n" +
 		"--CrossChat--\n" +
-		*prefix + " crossAdd : そのチャンネルをクロスチャットチャンネルにします\n" +
-		*prefix + " crossRemove : クロスチャットチャンネルを削除します\n"
+		*prefix + " crossAdd : クロスチャットに接続します\n" +
+		*prefix + " crossRemove : クロスチャットを切断します\n"
 	embed.Description = Text
 	//送信
 	if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {

@@ -82,8 +82,8 @@ Golangで自分のために作成
 > *RoleControllerという名前のロールがついている必要があります
 
 ### Crossチャット関連  
-`<prefix> crossAdd ` : そのチャンネルをクロスチャットチャンネルにします  
-`<prefix> crossRemove ` : クロスチャットチャンネルを削除します  
+`<prefix> crossAdd ` : クロスチャットに接続します  
+`<prefix> crossRemove ` : クロスチャットを切断します  
 
 ## コード元:  
 Bot Souce Code : https://github.com/takanakahiko/discord-tts  
