@@ -136,6 +136,10 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	message := m.Content
 	author := m.Author.Username
 	authorID := m.Author.ID
+	imageURL := ""
+	if len(m.Attachments) > 0 {
+		imageURL = m.Attachments[0].URL
+	}
 
 	//表示
 	log.Print("Guild:\"" + guildName + "\"  Channel:\"" + channel.Name + "\"  " + author + ": " + message)
@@ -225,15 +229,15 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	//テキスト転送
-	//メッセージ内容が空じゃないか確認
-	if message == "" {
+	//メッセージ内容&写真が空じゃないか確認
+	if message == "" && imageURL == "" {
 		return
 	}
 	//コピーチャンネルの対象確認
 	for _, channel := range crossChat {
 		//Mapの中にあるがあったらコピー
 		if channelID == channel {
-			crossChatCopy(channelID, guildName, authorID, message, messageID, discord)
+			crossChatCopy(channelID, guildName, authorID, message, imageURL, messageID, discord)
 			return
 		}
 	}
@@ -819,7 +823,7 @@ func crossChatRemove(guildID string, channelID string, discord *discordgo.Sessio
 	return
 }
 
-func crossChatCopy(channelID string, guildName string, authorID string, message string, messageID string, discord *discordgo.Session) {
+func crossChatCopy(channelID string, guildName string, authorID string, message string, imageURL string, messageID string, discord *discordgo.Session) {
 	//一時変数
 	authorData, _ := discord.User(authorID)
 	authorIconData := authorData.Avatar
@@ -832,7 +836,7 @@ func crossChatCopy(channelID string, guildName string, authorID string, message 
 		if channelID != sendChannelID {
 			//embedで使うguild名
 			guildView := ""
-			if len(strings.Split(guildView, "")) > 16 {
+			if len(strings.Split(guildName, "")) > 16 {
 				words := strings.Split(guildName, "")
 				for i := 0; i < 16; i++ {
 					guildView = guildView + words[i]
@@ -848,6 +852,9 @@ func crossChatCopy(channelID string, guildName string, authorID string, message 
 					IconURL: authorIcon,
 				},
 				Description: message,
+				Image: &discordgo.MessageEmbedImage{
+					URL: imageURL,
+				},
 			}
 			//Embedを送信
 			_, err := discord.ChannelMessageSendEmbed(sendChannelID, embedText)
