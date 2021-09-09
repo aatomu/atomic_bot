@@ -115,8 +115,17 @@ func botStateUpdate(discord *discordgo.Session) {
 	if joinedVC != 0 {
 		VC = " " + strconv.Itoa(joinedVC) + "鯖でお話し中"
 	}
-	state := *prefix + " help | " + strconv.Itoa(joinedServer) + "鯖で稼働中" + VC
-	discord.UpdateStatus(0, state)
+	state := discordgo.UpdateStatusData{
+		Activities: []*discordgo.Activity{
+			{
+				Name: *prefix + " help | " + strconv.Itoa(joinedServer) + "鯖で稼働中" + VC,
+				Type: 4,
+			},
+		},
+		AFK:    false,
+		Status: "online",
+	}
+	discord.UpdateStatusComplex(state)
 }
 
 //メッセージが送られたときにCall
@@ -871,6 +880,144 @@ func crossChatCopy(channelID string, guildName string, authorID string, message 
 	return
 }
 
+func memberCounter(discord *discordgo.Session, guildID string, channelID string) {
+	channels, _ := discord.GuildChannels(guildID)
+	shouldCreateCategory := true
+	categoryID := ""
+	for _, channelData := range channels {
+		if channelData.Name == "Server Info" {
+			shouldCreateCategory = false
+			categoryID = channelData.ID
+		}
+	}
+	//チャンネル削除
+	if !shouldCreateCategory {
+		//チャンネル削除
+		for _, channelData := range channels {
+			if channelData.ParentID == categoryID {
+				_, err := discord.ChannelDelete(channelData.ID)
+				if err != nil {
+					log.Println(err)
+					discord.ChannelMessageSend(channelID, "削除に失敗しました\nBOTの権限を確認してください")
+					return
+				}
+			}
+		}
+		//カテゴリー削除
+		_, err := discord.ChannelDelete(categoryID)
+		if err != nil {
+			log.Println(err)
+			discord.ChannelMessageSend(channelID, "削除に失敗しました\nBOTの権限を確認してください")
+			return
+		}
+		discord.ChannelMessageSend(channelID, "メンバーカウンターを削除しました")
+	}
+
+	//チャンネル作成
+	if shouldCreateCategory {
+		createChannelData := discordgo.GuildChannelCreateData{
+			Name:     "Server Info",
+			Type:     4,
+			Position: 0,
+			NSFW:     false,
+		}
+		//カテゴリー作成
+		categoryData, err := discord.GuildChannelCreateComplex(guildID, createChannelData)
+		if err != nil {
+			log.Println(err)
+			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			return
+		}
+		//everyoneロールID
+		guildRoleList, _ := discord.GuildRoles(guildID)
+		everyoneID := guildRoleList[0].ID
+		//チャンネル作成
+		//初期設定
+		createChannelData = discordgo.GuildChannelCreateData{
+			Type: 2,
+			PermissionOverwrites: []*discordgo.PermissionOverwrite{
+				{
+					ID:    everyoneID,
+					Type:  0,
+					Deny:  1048576,
+					Allow: 0,
+				},
+				{
+					ID:    discord.State.User.ID,
+					Type:  1,
+					Deny:  0,
+					Allow: 1048576,
+				},
+			},
+			ParentID: categoryData.ID,
+			Position: 0,
+		}
+
+		//User
+		createChannelData.Name = "User: "
+		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
+		if err != nil {
+			log.Println(err)
+			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			return
+		}
+
+		//Online
+		createChannelData.Name = "OnlineUser: "
+		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
+		if err != nil {
+			log.Println(err)
+			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			return
+		}
+
+		//Offline
+		createChannelData.Name = "OfflineUser: "
+		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
+		if err != nil {
+			log.Println(err)
+			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			return
+		}
+
+		//Bot
+		createChannelData.Name = "Bot: "
+		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
+		if err != nil {
+			log.Println(err)
+			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			return
+		}
+
+		//Roles
+		createChannelData.Name = "Role: "
+		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
+		if err != nil {
+			log.Println(err)
+			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			return
+		}
+
+		//Channel
+		createChannelData.Name = "Channel: "
+		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
+		if err != nil {
+			log.Println(err)
+			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			return
+		}
+
+		//CrossChat
+		createChannelData.Name = "CrossChats: "
+		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
+		if err != nil {
+			log.Println(err)
+			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			return
+		}
+	}
+}
+
 func sendHelp(discord *discordgo.Session, channelID string) {
 	//embedのData作成
 	embed := &discordgo.MessageEmbed{
@@ -893,7 +1040,9 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 		*prefix + " role <名前>,@<ロール1>,@<ロール2>... : ロール管理を作成します\n  *RoleControllerという名前のロールがついている必要があります\n" +
 		"--CrossChat--\n" +
 		*prefix + " crossAdd : クロスチャットに接続します\n" +
-		*prefix + " crossRemove : クロスチャットを切断します\n"
+		*prefix + " crossRemove : クロスチャットを切断します\n" +
+		"--ServerInfo--\n" +
+		*prefix + " info : サーバーのデータを表示します\n"
 	embed.Description = Text
 	//送信
 	if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
