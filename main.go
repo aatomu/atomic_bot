@@ -937,9 +937,9 @@ func crossChatCopy(channelID string, guildName string, authorID string, message 
 		if channelID != sendChannelID {
 			//embedで使うguild名
 			guildView := ""
-			if len(strings.Split(guildName, "")) > 16 {
+			if len(strings.Split(guildName, "")) > 8 {
 				words := strings.Split(guildName, "")
-				for i := 0; i < 16; i++ {
+				for i := 0; i < 8; i++ {
 					guildView = guildView + words[i]
 				}
 				guildView = guildView + "..."
