@@ -223,7 +223,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	//info
 	case isPrefix(message, "info"):
 		if hasRole(discord, guildID, authorID, "InfoController") {
-			memberCounter(discord, guildID, channelID, messageID)
+			serverInfo(discord, guildID, channelID, messageID)
 			return
 		}
 		addReaction(discord, channelID, messageID, "❌")
@@ -899,7 +899,7 @@ func crossChatCopy(channelID string, guildName string, authorID string, message 
 	return
 }
 
-func memberCounter(discord *discordgo.Session, guildID string, channelID string, messageID string) {
+func serverInfo(discord *discordgo.Session, guildID string, channelID string, messageID string) {
 	channels, _ := discord.GuildChannels(guildID)
 	shouldCreateCategory := true
 	categoryID := ""
