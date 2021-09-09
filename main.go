@@ -102,6 +102,7 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 			select {
 			case <-ticker.C:
 				botStateUpdate(discord)
+				serverInfoUpdate(discord)
 			}
 		}
 	}()
@@ -126,6 +127,10 @@ func botStateUpdate(discord *discordgo.Session) {
 		Status: "online",
 	}
 	discord.UpdateStatusComplex(state)
+}
+
+func serverInfoUpdate(discord *discordgo.Session) {
+
 }
 
 //メッセージが送られたときにCall
@@ -160,7 +165,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	switch {
 	//TTS関連
-	case prefixCheck(message, "join"):
+	case isPrefix(message, "join"):
 		_, err := GetByGuildID(guildID)
 		if err == nil {
 			addReaction(discord, channelID, messageID, "❌")
@@ -168,16 +173,16 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		joinVoiceChat(channelID, guildID, discord, authorID, messageID)
 		return
-	case prefixCheck(message, "speed "):
+	case isPrefix(message, "speed "):
 		changeUserSpeed(authorID, message, discord, channelID, messageID)
 		return
-	case prefixCheck(message, "pitch "):
+	case isPrefix(message, "pitch "):
 		changeUserPitch(authorID, message, discord, channelID, messageID)
 		return
-	case prefixCheck(message, "lang "):
+	case isPrefix(message, "lang "):
 		changeUserLang(authorID, message, discord, channelID, messageID)
 		return
-	case prefixCheck(message, "limit "):
+	case isPrefix(message, "limit "):
 		session, err := GetByGuildID(guildID)
 		if err != nil || session.channelID != channelID {
 			addReaction(discord, channelID, messageID, "❌")
@@ -185,10 +190,10 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		changeSpeechLimit(session, message, discord, channelID, messageID)
 		return
-	case prefixCheck(message, "word "):
+	case isPrefix(message, "word "):
 		addWord(message, guildID, discord, channelID, messageID)
 		return
-	case prefixCheck(message, "leave"):
+	case isPrefix(message, "leave"):
 		session, err := GetByGuildID(guildID)
 		if err != nil || session.channelID != channelID {
 			addReaction(discord, channelID, messageID, "❌")
@@ -197,35 +202,34 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		leaveVoiceChat(session, discord, channelID, messageID, true)
 		return
 		//Poll関連
-	case prefixCheck(message, "poll "):
+	case isPrefix(message, "poll "):
 		createPoll(message, author, discord, channelID, messageID)
 		return
 	//Role関連
-	case prefixCheck(message, "role "):
-		//ロールを持ってるか確認
-		roleCheck, _ := discord.GuildMember(guildID, authorID)
-		roleList, _ := discord.GuildRoles(guildID)
-		for _, role := range roleList {
-			if strings.Contains(role.Name, "RoleController") {
-				for _, roleHave := range roleCheck.Roles {
-					if roleHave == role.ID {
-						crateRoleManager(message, author, discord, channelID, messageID)
-						return
-					}
-				}
-			}
+	case isPrefix(message, "role "):
+		if hasRole(discord, guildID, authorID, "RoleController") {
+			crateRoleManager(message, author, discord, channelID, messageID)
+			return
 		}
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	//chat関連
-	case prefixCheck(message, "crossAdd"):
+	case isPrefix(message, "crossAdd"):
 		crossChatAdd(guildID, channelID, discord)
 		return
-	case prefixCheck(message, "crossRemove"):
+	case isPrefix(message, "crossRemove"):
 		crossChatRemove(guildID, channelID, discord)
 		return
-	//help
-	case prefixCheck(message, "help"):
+	//info
+	case isPrefix(message, "info"):
+		if hasRole(discord, guildID, authorID, "InfoController") {
+			memberCounter(discord, guildID, channelID)
+			return
+		}
+		addReaction(discord, channelID, messageID, "❌")
+		return
+		//help
+	case isPrefix(message, "help"):
 		sendHelp(discord, channelID)
 		return
 	}
@@ -253,10 +257,25 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 }
 
-func prefixCheck(message, check string) bool {
+func isPrefix(message string, check string) bool {
 	return strings.HasPrefix(message, *prefix+" "+check)
 }
 
+func hasRole(discord *discordgo.Session, guildID string, userID string, roleName string) bool {
+	//ロール名チェック用変数
+	guildRoleList, _ := discord.GuildRoles(guildID)
+	userData, _ := discord.GuildMember(guildID, userID)
+	roleData := userData.Roles
+	//ロール名チェック
+	for _, guildRole := range guildRoleList {
+		for _, roleID := range roleData {
+			if roleID == guildRole.ID && guildRole.Name == roleName {
+				return true
+			}
+		}
+	}
+	return false
+}
 func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session, authorID string, messageID string) {
 	voiceConection, err := joinUserVoiceChannel(discord, authorID)
 	if err != nil {
