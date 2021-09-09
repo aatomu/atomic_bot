@@ -96,12 +96,14 @@ func main() {
 func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 	clientID = discord.State.User.ID
 	//1秒に1回呼び出す
-	ticker := time.NewTicker(1 * time.Second)
+	oneSecTicker := time.NewTicker(1 * time.Second)
+	tenSecTicker := time.NewTicker(10 * time.Second)
 	go func() {
 		for {
 			select {
-			case <-ticker.C:
+			case <-oneSecTicker.C:
 				botStateUpdate(discord)
+			case <-tenSecTicker.C:
 				serverInfoUpdate(discord)
 			}
 		}
@@ -130,7 +132,77 @@ func botStateUpdate(discord *discordgo.Session) {
 }
 
 func serverInfoUpdate(discord *discordgo.Session) {
+	joinedGuilds, _ := discord.UserGuilds(100, "", "")
+	for _, guild := range joinedGuilds {
+		guildChannels, err := discord.GuildChannels(guild.ID)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 
+		//Info カテゴリーチェック
+		categoryID := ""
+		for _, channel := range guildChannels {
+			if channel.Name == "Server Info" && channel.Type == 4 {
+				categoryID = channel.ID
+				break
+			}
+		}
+
+		//ないならreturn
+		if categoryID == "" {
+			continue
+		}
+
+		//更新
+		for _, channel := range guildChannels {
+			if channel.ParentID == categoryID {
+				switch {
+				//すべて
+				case strings.HasPrefix(channel.Name, "User:"):
+					guild, _ := discord.State.Guild(channel.GuildID)
+					name := "User: " + strconv.Itoa(guild.MemberCount)
+					if name != channel.Name {
+						discord.ChannelEdit(channel.ID, name)
+					}
+					//ロール数
+				case strings.HasPrefix(channel.Name, "Role:"):
+					guild, _ := discord.State.Guild(channel.GuildID)
+					//@everyoneも入ってるから-1
+					name := "Role: " + strconv.Itoa(len(guild.Roles)-1)
+					if name != channel.Name {
+						discord.ChannelEdit(channel.ID, name)
+					}
+					//絵文字
+				case strings.HasPrefix(channel.Name, "Emoji:"):
+					guild, _ := discord.State.Guild(channel.GuildID)
+					name := "Emoji: " + strconv.Itoa(len(guild.Emojis))
+					if name != channel.Name {
+						discord.ChannelEdit(channel.ID, name)
+					}
+					//チャンネル数
+				case strings.HasPrefix(channel.Name, "Channel:"):
+					guild, _ := discord.State.Guild(channel.GuildID)
+					count := 0
+					for _, channel := range guild.Channels {
+						if channel.Type != 4 && channel.ID != categoryID && channel.ParentID != categoryID {
+							count++
+						}
+					}
+					name := "Channel: " + strconv.Itoa(count)
+					if name != channel.Name {
+						discord.ChannelEdit(channel.ID, name)
+					}
+					//クロスチャット数
+				case strings.HasPrefix(channel.Name, "CrossChat:"):
+					name := "CrossChat:" + strconv.Itoa(len(crossChat))
+					if name != channel.Name {
+						discord.ChannelEdit(channel.ID, name)
+					}
+				}
+			}
+		}
+	}
 }
 
 //メッセージが送られたときにCall
@@ -276,6 +348,7 @@ func hasRole(discord *discordgo.Session, guildID string, userID string, roleName
 	}
 	return false
 }
+
 func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session, authorID string, messageID string) {
 	voiceConection, err := joinUserVoiceChannel(discord, authorID)
 	if err != nil {
@@ -979,35 +1052,17 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 			return
 		}
 
-		//Online
-		createChannelData.Name = "OnlineUser: "
-		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
-		if err != nil {
-			log.Println(err)
-			addReaction(discord, channelID, messageID, "❌")
-			return
-		}
-
-		//Offline
-		createChannelData.Name = "OfflineUser: "
-		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
-		if err != nil {
-			log.Println(err)
-			addReaction(discord, channelID, messageID, "❌")
-			return
-		}
-
-		//Bot
-		createChannelData.Name = "Bot: "
-		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
-		if err != nil {
-			log.Println(err)
-			addReaction(discord, channelID, messageID, "❌")
-			return
-		}
-
 		//Roles
 		createChannelData.Name = "Role: "
+		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
+		if err != nil {
+			log.Println(err)
+			addReaction(discord, channelID, messageID, "❌")
+			return
+		}
+
+		//Emoji
+		createChannelData.Name = "Emoji: "
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
 			log.Println(err)
@@ -1025,7 +1080,7 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 		}
 
 		//CrossChat
-		createChannelData.Name = "CrossChats: "
+		createChannelData.Name = "CrossChat: "
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
 			log.Println(err)
