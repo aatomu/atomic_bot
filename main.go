@@ -223,7 +223,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	//info
 	case isPrefix(message, "info"):
 		if hasRole(discord, guildID, authorID, "InfoController") {
-			memberCounter(discord, guildID, channelID)
+			memberCounter(discord, guildID, channelID, messageID)
 			return
 		}
 		addReaction(discord, channelID, messageID, "❌")
@@ -899,7 +899,7 @@ func crossChatCopy(channelID string, guildName string, authorID string, message 
 	return
 }
 
-func memberCounter(discord *discordgo.Session, guildID string, channelID string) {
+func memberCounter(discord *discordgo.Session, guildID string, channelID string, messageID string) {
 	channels, _ := discord.GuildChannels(guildID)
 	shouldCreateCategory := true
 	categoryID := ""
@@ -917,7 +917,7 @@ func memberCounter(discord *discordgo.Session, guildID string, channelID string)
 				_, err := discord.ChannelDelete(channelData.ID)
 				if err != nil {
 					log.Println(err)
-					discord.ChannelMessageSend(channelID, "削除に失敗しました\nBOTの権限を確認してください")
+					addReaction(discord, channelID, messageID, "❌")
 					return
 				}
 			}
@@ -926,10 +926,11 @@ func memberCounter(discord *discordgo.Session, guildID string, channelID string)
 		_, err := discord.ChannelDelete(categoryID)
 		if err != nil {
 			log.Println(err)
-			discord.ChannelMessageSend(channelID, "削除に失敗しました\nBOTの権限を確認してください")
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
-		discord.ChannelMessageSend(channelID, "メンバーカウンターを削除しました")
+		addReaction(discord, channelID, messageID, "🛑")
+		return
 	}
 
 	//チャンネル作成
@@ -944,7 +945,7 @@ func memberCounter(discord *discordgo.Session, guildID string, channelID string)
 		categoryData, err := discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
 			log.Println(err)
-			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
 		//everyoneロールID
@@ -977,7 +978,7 @@ func memberCounter(discord *discordgo.Session, guildID string, channelID string)
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
 			log.Println(err)
-			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
 
@@ -986,7 +987,7 @@ func memberCounter(discord *discordgo.Session, guildID string, channelID string)
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
 			log.Println(err)
-			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
 
@@ -995,7 +996,7 @@ func memberCounter(discord *discordgo.Session, guildID string, channelID string)
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
 			log.Println(err)
-			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
 
@@ -1004,7 +1005,7 @@ func memberCounter(discord *discordgo.Session, guildID string, channelID string)
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
 			log.Println(err)
-			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
 
@@ -1013,7 +1014,7 @@ func memberCounter(discord *discordgo.Session, guildID string, channelID string)
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
 			log.Println(err)
-			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
 
@@ -1022,7 +1023,7 @@ func memberCounter(discord *discordgo.Session, guildID string, channelID string)
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
 			log.Println(err)
-			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
 
@@ -1031,9 +1032,11 @@ func memberCounter(discord *discordgo.Session, guildID string, channelID string)
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
 			log.Println(err)
-			discord.ChannelMessageSend(channelID, "作成に失敗しました\nBOTの権限を確認してください")
+			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
+		addReaction(discord, channelID, messageID, "📊")
+		return
 	}
 }
 
