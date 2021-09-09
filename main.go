@@ -120,7 +120,7 @@ func botStateUpdate(discord *discordgo.Session) {
 		Activities: []*discordgo.Activity{
 			{
 				Name: *prefix + " help | " + strconv.Itoa(joinedServer) + "鯖で稼働中" + VC,
-				Type: 4,
+				Type: 0,
 			},
 		},
 		AFK:    false,
@@ -1056,12 +1056,14 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 		"--Poll--\n" +
 		*prefix + " poll <質問>,<回答1>,<回答2>... : 質問を作成します\n" +
 		"--Role--\n" +
-		*prefix + " role <名前>,@<ロール1>,@<ロール2>... : ロール管理を作成します\n  *RoleControllerという名前のロールがついている必要があります\n" +
+		*prefix + " role <名前>,@<ロール1>,@<ロール2>... : ロール管理を作成します\n" +
+		"*RoleControllerという名前のロールがついている必要があります\n" +
 		"--CrossChat--\n" +
 		*prefix + " crossAdd : クロスチャットに接続します\n" +
 		*prefix + " crossRemove : クロスチャットを切断します\n" +
 		"--ServerInfo--\n" +
-		*prefix + " info : サーバーのデータを表示します\n"
+		*prefix + " info : サーバーのデータを表示します\n" +
+		"*InfoControllerという名前のロールがついている必要があります\n"
 	embed.Description = Text
 	//送信
 	if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
