@@ -892,10 +892,7 @@ func crossChatCopy(channelID string, guildName string, authorID string, message 
 		}
 	}
 	//コピーに成功したか
-	err := discord.MessageReactionAdd(channelID, messageID, "✅")
-	if err != nil {
-		log.Println(err)
-	}
+	addReaction(discord, channelID, messageID, "✅")
 	return
 }
 
