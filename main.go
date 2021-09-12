@@ -1329,6 +1329,7 @@ func addReaction(discord *discordgo.Session, channelID string, messageID string,
 	if err != nil {
 		log.Print("Error: addReaction Failed")
 		log.Println(err)
+		return
 	}
 }
 
