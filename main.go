@@ -1163,8 +1163,11 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 	channelID := reaction.ChannelID
 	channel, _ := discord.Channel(channelID)
 	messageID := reaction.MessageID
-	messageData, _ := discord.ChannelMessage(channelID, messageID)
-	message := messageData.Content
+	messageData, err := discord.ChannelMessage(channelID, messageID)
+	message := ""
+	if err == nil {
+		message = messageData.Content
+	}
 	guildID := reaction.GuildID
 	guildData, _ := discord.Guild(guildID)
 	guild := guildData.Name
@@ -1329,8 +1332,8 @@ func addReaction(discord *discordgo.Session, channelID string, messageID string,
 	if err != nil {
 		log.Print("Error: addReaction Failed")
 		log.Println(err)
-		return
 	}
+	return
 }
 
 //ファイル読み込み
