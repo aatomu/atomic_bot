@@ -59,8 +59,9 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM+JJJJ` ` `` ` `` ``(JJJJMMMMMMMMMMMMM
 -->
 # atomic_bot
 Golangで自分のために作成  
-開発環境:rpi4(8gb) golang(go1.11.6 linux/arm64) ffmpeg(testing 7:4.1.6-1~deb10u1+rpt2 arm64)  
-  
+開発環境:rpi4(8gb) golang(go1.16.7 linux/arm64) ffmpeg(testing 7:4.1.6-1~deb10u1+rpt2 arm64)  
+必要用件: go v1.16.7+ ffmpeg
+
 ## -起動-  
 ```go run main.go -prefix=<prefix> -token=<bot token>```
   
