@@ -245,6 +245,9 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		joinVoiceChat(channelID, guildID, discord, authorID, messageID)
 		return
+	case isPrefix(message, "get"):
+		viewUserSetting(authorID, discord, channelID, messageID)
+		return
 	case isPrefix(message, "speed "):
 		changeUserSpeed(authorID, message, discord, channelID, messageID)
 		return
@@ -492,6 +495,41 @@ func playAudioFile(userSpeed float64, userPitch float64, session *SessionData, f
 			playbackPosition := stream.PlaybackPosition()
 			log.Println("Sending Now... : Playback:", playbackPosition)
 		}
+	}
+}
+
+func viewUserSetting(userID string, discord *discordgo.Session, channelID string, messageID string) {
+	lang, speed, pitch, err := userConfig(userID, "", 0, 0)
+	if err != nil {
+		log.Println("Faild get user config")
+		addReaction(discord, channelID, messageID, "❌")
+		return
+	}
+	//embedのData作成
+	embed := &discordgo.MessageEmbed{
+		Type:        "rich",
+		Title:       "",
+		Description: "",
+		Color:       1000,
+	}
+	userData, err := discord.User(userID)
+	if err != nil {
+		log.Println("Faild get user data")
+		addReaction(discord, channelID, messageID, "❌")
+		return
+	}
+	embed.Title = "@" + userData.Username + "'s Speech Config"
+	embedText := "Lang:\n" +
+		lang + "\n" +
+		"Speed:\n" +
+		fmt.Sprint(speed) + "\n" +
+		"Pitch:\n" +
+		fmt.Sprint(pitch)
+	embed.Description = embedText
+	//送信
+	if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
+		log.Println("Faild send user config embed")
+		log.Println(err)
 	}
 }
 
@@ -1103,6 +1141,7 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 	}
 	Text := "--TTS--\n" +
 		*prefix + " join :VCに参加します\n" +
+		*prefix + " get :読み上げ設定を表示します(User単位)\n" +
 		*prefix + " speed <0.5-5> : 読み上げ速度を変更します(User単位)\n" +
 		*prefix + " pitch <0.5-1.5> : 声の高さを変更します(User単位)\n" +
 		*prefix + " lang <言語> : 読み上げ言語を変更します(User単位)\n" +
@@ -1123,6 +1162,7 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 	embed.Description = Text
 	//送信
 	if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
+		log.Println("Faild send help embed")
 		log.Println(err)
 	}
 }

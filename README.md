@@ -68,6 +68,7 @@ Golangで自分のために作成
 ## -botｺﾏﾝﾄﾞ-  
 ### TTS関連  
 `<prefix> join` : VCに接続します  
+`<prefix> get` : 読み上げ設定を表示します(User単位)  
 `<prefix> speed <0.5-5>` : 読み上げ速度を設定します(User単位)  
 `<prefix> pitch <0.5-1.5>` : 声の高さを設定します(User単位)  
 `<prefix> lang <language code || auto` : 読み上げる言語を変更します(User単位)  
