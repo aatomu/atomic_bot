@@ -594,7 +594,10 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 		_, _, _, err := userConfig(userID, lang, 0, 0)
 		if err != nil {
 			log.Println(err)
+			addReaction(discord, channelID, messageID, "❌")
+			return
 		}
+		addReaction(discord, channelID, messageID, "🗣️")
 		return
 	}
 
