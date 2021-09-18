@@ -605,11 +605,12 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 		return
 	}
 	//UserIDからデータを入手
+	reg := regexp.MustCompile(`^UserID:.* Lang:auto Speed:1 Pitch:1$`)
 	for _, line := range strings.Split(text, "\n") {
 		if strings.Contains(line, "UserID:"+userID) {
 			fmt.Sscanf(line, "UserID:"+userID+" Lang:%s Speed:%f Pitch:%f", &lang, &speed, &pitch)
 		} else {
-			if line != "" {
+			if line != "" && !reg.MatchString(line) {
 				writeText = writeText + line + "\n"
 			}
 		}
