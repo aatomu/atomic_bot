@@ -228,15 +228,15 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	filesURL := ""
 	if len(m.Attachments) > 0 {
-		filesURL := "Files: \""
+		filesURL = "Files: \""
 		for _, file := range m.Attachments {
-			filesURL = filesURL + file.URL
+			filesURL = filesURL + file.URL + ","
 		}
-		filesURL = filesURL + "\""
+		filesURL = filesURL + "\"  "
 	}
 
 	//表示
-	log.Print("Guild:\"" + guildName + "\"  Channel:\"" + channel.Name + "\"  " + filesURL + "  " + author + ": " + message)
+	log.Print("Guild:\"" + guildName + "\"  Channel:\"" + channel.Name + "\"  " + filesURL + author + ": " + message)
 
 	//bot 読み上げ無し のチェック
 	if m.Author.Bot || strings.HasPrefix(m.Content, ";") {
