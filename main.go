@@ -221,6 +221,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	messageID := m.ID
 	message := m.Content
 	author := m.Author.Username
+	authorNumber := m.Author.Discriminator
 	authorID := m.Author.ID
 	imageURL := ""
 	if len(m.Attachments) > 0 {
@@ -236,7 +237,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	//表示
-	log.Print("Guild:\"" + guildName + "\"  Channel:\"" + channel.Name + "\"  " + filesURL + author + ": " + message)
+	log.Print("Guild:\"" + guildName + "\"  Channel:\"" + channel.Name + "\"  " + filesURL + "<" + author + "#" + authorNumber + ">: " + message)
 
 	//bot 読み上げ無し のチェック
 	if m.Author.Bot || strings.HasPrefix(m.Content, ";") {
