@@ -194,8 +194,8 @@ func serverInfoUpdate(discord *discordgo.Session) {
 						discord.ChannelEdit(channel.ID, name)
 					}
 					//クロスチャット数
-				case strings.HasPrefix(channel.Name, "CrossChat:"):
-					name := "CrossChat:" + strconv.Itoa(len(crossChat))
+				case strings.HasPrefix(channel.Name, "Cross Chat:"):
+					name := "Cross Chat:" + strconv.Itoa(len(crossChat))
 					if name != channel.Name {
 						discord.ChannelEdit(channel.ID, name)
 					}
@@ -461,7 +461,7 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	session.mut.Lock()
 	defer session.mut.Unlock()
 
-	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=32&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), lang)
+	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), lang)
 	err = playAudioFile(speed, pitch, session, voiceURL)
 	if err != nil {
 		log.Printf("Error:%s voiceURL:%s", err, voiceURL)
