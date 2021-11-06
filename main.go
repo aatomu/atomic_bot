@@ -44,11 +44,10 @@ func GetByGuildID(guildID string) (*SessionData, error) {
 
 var (
 	//変数定義
-	prefix    = flag.String("prefix", "", "call prefix")
-	token     = flag.String("token", "", "bot token")
-	clientID  = ""
-	sessions  = []*SessionData{}
-	crossChat = map[string]string{}
+	prefix   = flag.String("prefix", "", "call prefix")
+	token    = flag.String("token", "", "bot token")
+	clientID = ""
+	sessions = []*SessionData{}
 )
 
 func main() {
@@ -193,12 +192,6 @@ func serverInfoUpdate(discord *discordgo.Session) {
 					if name != channel.Name {
 						discord.ChannelEdit(channel.ID, name)
 					}
-					//クロスチャット数
-				case strings.HasPrefix(channel.Name, "Cross Chat:"):
-					name := "Cross Chat:" + strconv.Itoa(len(crossChat))
-					if name != channel.Name {
-						discord.ChannelEdit(channel.ID, name)
-					}
 				}
 			}
 		}
@@ -223,10 +216,6 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	author := m.Author.Username
 	authorNumber := m.Author.Discriminator
 	authorID := m.Author.ID
-	imageURL := ""
-	if len(m.Attachments) > 0 {
-		imageURL = m.Attachments[0].URL
-	}
 	filesURL := ""
 	if len(m.Attachments) > 0 {
 		filesURL = "Files: \""
@@ -297,13 +286,6 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		addReaction(discord, channelID, messageID, "❌")
 		return
-	//chat関連
-	case isPrefix(message, "crossAdd"):
-		crossChatAdd(guildID, channelID, discord)
-		return
-	case isPrefix(message, "crossRemove"):
-		crossChatRemove(guildID, channelID, discord)
-		return
 	//info
 	case isPrefix(message, "info"):
 		if hasRole(discord, guildID, authorID, "InfoController") {
@@ -323,20 +305,6 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	if err == nil && session.channelID == channelID {
 		speechOnVoiceChat(authorID, session, message)
 		return
-	}
-
-	//テキスト転送
-	//メッセージ内容&写真が空じゃないか確認
-	if message == "" && imageURL == "" {
-		return
-	}
-	//コピーチャンネルの対象確認
-	for _, channel := range crossChat {
-		//Mapの中にあるがあったらコピー
-		if channelID == channel {
-			crossChatCopy(channelID, guildName, authorID, message, imageURL, messageID, discord)
-			return
-		}
 	}
 
 }
@@ -918,108 +886,6 @@ func crateRoleManager(message string, author string, discord *discordgo.Session,
 	}
 }
 
-func crossChatAdd(guildID string, channelID string, discord *discordgo.Session) {
-	copyChannels := len(crossChat)
-	crossChat[guildID] = channelID
-	//embedの生成
-	embedText := &discordgo.MessageEmbed{
-		Description: "このチャンネルを クロスチャットに接続\n" +
-			"現在のクロスチャット数:" + strconv.Itoa(len(crossChat)) + "\n",
-	}
-	//追加したことを通知するEmbedを送信
-	_, err := discord.ChannelMessageSendEmbed(channelID, embedText)
-	if err != nil {
-		log.Println(err)
-	}
-	//他サーバーに連絡か確認
-	if copyChannels < len(crossChat) {
-		//古いやつと比べて増えてたら送る
-		for _, sendChannelID := range crossChat {
-			//送信元とだぶらないようにする
-			if channelID != sendChannelID {
-				//embedの生成
-				embedText := &discordgo.MessageEmbed{
-					Description: "新しいクロスチャット接続ができました\n" +
-						"現在のクロスチャット数:" + strconv.Itoa(len(crossChat)) + "\n",
-				}
-				//追加したことを通知するEmbedを送信
-				_, err = discord.ChannelMessageSendEmbed(sendChannelID, embedText)
-				if err != nil {
-					log.Println(err)
-				}
-			}
-		}
-	}
-	return
-}
-
-func crossChatRemove(guildID string, channelID string, discord *discordgo.Session) {
-	shouldDeleteMap := false
-	for _, value := range crossChat {
-		if channelID == value {
-			shouldDeleteMap = true
-		}
-	}
-	if shouldDeleteMap {
-		delete(crossChat, guildID)
-		//embedの生成
-		embedText := &discordgo.MessageEmbed{
-			Description: "クロスチャット を切断しました\n",
-		}
-		//追加したことを通知するEmbedを送信
-		_, err := discord.ChannelMessageSendEmbed(channelID, embedText)
-		if err != nil {
-			log.Println(err)
-		}
-	}
-	return
-}
-
-func crossChatCopy(channelID string, guildName string, authorID string, message string, imageURL string, messageID string, discord *discordgo.Session) {
-	//一時変数
-	authorData, _ := discord.User(authorID)
-	authorIconData := authorData.Avatar
-	authorIcon := authorData.AvatarURL(authorIconData)
-	authorString := authorData.String()
-
-	//コピーするとき自分以外のサーバーでコピー
-	for _, sendChannelID := range crossChat {
-		//送信元とだぶらないようにする
-		if channelID != sendChannelID {
-			//embedで使うguild名
-			guildView := ""
-			if len(strings.Split(guildName, "")) > 8 {
-				words := strings.Split(guildName, "")
-				for i := 0; i < 8; i++ {
-					guildView = guildView + words[i]
-				}
-				guildView = guildView + "..."
-			} else {
-				guildView = guildName
-			}
-			//embedの生成
-			embedText := &discordgo.MessageEmbed{
-				Author: &discordgo.MessageEmbedAuthor{
-					Name:    "@" + authorString + " From:\"" + guildView + "\"",
-					IconURL: authorIcon,
-				},
-				Description: message,
-				Image: &discordgo.MessageEmbedImage{
-					URL: imageURL,
-				},
-			}
-			//Embedを送信
-			_, err := discord.ChannelMessageSendEmbed(sendChannelID, embedText)
-			if err != nil {
-				log.Println(err)
-			}
-		}
-	}
-	//コピーに成功したか
-	addReaction(discord, channelID, messageID, "✅")
-	return
-}
-
 func serverInfo(discord *discordgo.Session, guildID string, channelID string, messageID string) {
 	channels, _ := discord.GuildChannels(guildID)
 	shouldCreateCategory := true
@@ -1130,14 +996,6 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 			return
 		}
 
-		//CrossChat
-		createChannelData.Name = "CrossChat: "
-		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
-		if err != nil {
-			log.Println(err)
-			addReaction(discord, channelID, messageID, "❌")
-			return
-		}
 		addReaction(discord, channelID, messageID, "📊")
 		return
 	}
@@ -1165,9 +1023,6 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 		"--Role--\n" +
 		*prefix + " role <名前>,@<ロール1>,@<ロール2>... : ロール管理を作成します\n" +
 		"*RoleControllerという名前のロールがついている必要があります\n" +
-		"--CrossChat--\n" +
-		*prefix + " crossAdd : クロスチャットに接続します\n" +
-		*prefix + " crossRemove : クロスチャットを切断します\n" +
 		"--ServerInfo--\n" +
 		*prefix + " info : サーバーのデータを表示します\n" +
 		"*InfoControllerという名前のロールがついている必要があります\n"
