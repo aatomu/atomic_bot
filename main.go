@@ -1105,7 +1105,7 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + logText + "  User:" + user + "  Add:" + emoji)
 
 	//embedがあるか確認
-	if len(messageData.Embeds) == 0 {
+	if messageData.Embeds == nil {
 		return
 	}
 
@@ -1190,7 +1190,7 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + logText + "  User:" + user + "  Remove:" + emoji)
 
 	//embedがあるか確認
-	if len(messageData.Embeds) == 0 {
+	if messageData.Embeds == nil {
 		return
 	}
 
