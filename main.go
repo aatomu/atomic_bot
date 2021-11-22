@@ -1305,13 +1305,15 @@ func readFile(filePath string) (text string, returnErr error) {
 
 //Error表示
 func PrintError(message string, err error) {
-	pc, file, line, ok := runtime.Caller(100)
-	fname := filepath.Base(file)
-	position := ""
-	if ok {
-		position = fmt.Sprintf("%s:%d %s()", fname, line, runtime.FuncForPC(pc).Name())
+	if err != nil {
+		pc, file, line, ok := runtime.Caller(1)
+		fname := filepath.Base(file)
+		position := ""
+		if ok {
+			position = fmt.Sprintf("%s:%d %s()", fname, line, runtime.FuncForPC(pc).Name())
+		}
+		fmt.Printf("---[Error]---\nMessage:\"%s\" %s\n", message, position)
+		fmt.Printf("%s\n", err.Error())
 	}
-	fmt.Printf("---[Error]---\nMessage:\"%s\" %s\n", message, position)
-	fmt.Printf("%s\n", err.Error())
 	return
 }
