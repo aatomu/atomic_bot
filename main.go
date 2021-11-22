@@ -7,6 +7,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/url"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"log"
@@ -58,9 +60,7 @@ func main() {
 
 	//bot起動準備
 	discord, err := discordgo.New()
-	if err != nil {
-		fmt.Println("Error logging")
-	}
+	PrintError("Error logging", err)
 
 	//token入手
 	discord.Token = "Bot " + *token
@@ -78,7 +78,7 @@ func main() {
 	}
 	defer func() {
 		if err := discord.Close(); err != nil {
-			log.Println(err)
+			PrintError("Failed close", err)
 		}
 	}()
 	//起動メッセージ表示
@@ -135,7 +135,7 @@ func serverInfoUpdate(discord *discordgo.Session) {
 	for _, guild := range joinedGuilds {
 		guildChannels, err := discord.GuildChannels(guild.ID)
 		if err != nil {
-			log.Println(err)
+			PrintError("Failed get GuildChannels", err)
 			continue
 		}
 
@@ -159,7 +159,12 @@ func serverInfoUpdate(discord *discordgo.Session) {
 				switch {
 				//すべて
 				case strings.HasPrefix(channel.Name, "User:"):
-					guild, _ := discord.State.Guild(channel.GuildID)
+					guild, err := discord.State.Guild(channel.GuildID)
+					if err != nil {
+						PrintError("Failed get GuildData", err)
+						continue
+					}
+
 					name := "User: " + strconv.Itoa(guild.MemberCount)
 					if name != channel.Name {
 						discord.ChannelEdit(channel.ID, name)
@@ -167,6 +172,11 @@ func serverInfoUpdate(discord *discordgo.Session) {
 					//ロール数
 				case strings.HasPrefix(channel.Name, "Role:"):
 					guild, _ := discord.State.Guild(channel.GuildID)
+					if err != nil {
+						PrintError("Failed get GuildData", err)
+						continue
+					}
+
 					//@everyoneも入ってるから-1
 					name := "Role: " + strconv.Itoa(len(guild.Roles)-1)
 					if name != channel.Name {
@@ -174,14 +184,24 @@ func serverInfoUpdate(discord *discordgo.Session) {
 					}
 					//絵文字
 				case strings.HasPrefix(channel.Name, "Emoji:"):
-					guild, _ := discord.State.Guild(channel.GuildID)
+					guild, err := discord.State.Guild(channel.GuildID)
+					if err != nil {
+						PrintError("Failed get GuildData", err)
+						continue
+					}
+
 					name := "Emoji: " + strconv.Itoa(len(guild.Emojis))
 					if name != channel.Name {
 						discord.ChannelEdit(channel.ID, name)
 					}
 					//チャンネル数
 				case strings.HasPrefix(channel.Name, "Channel:"):
-					guild, _ := discord.State.Guild(channel.GuildID)
+					guild, err := discord.State.Guild(channel.GuildID)
+					if err != nil {
+						PrintError("Failed get GuildData", err)
+						continue
+					}
+
 					count := 0
 					for _, channel := range guild.Channels {
 						if channel.Type != 4 && channel.ID != categoryID && channel.ParentID != categoryID {
@@ -315,8 +335,18 @@ func isPrefix(message string, check string) bool {
 
 func hasRole(discord *discordgo.Session, guildID string, userID string, roleName string) bool {
 	//ロール名チェック用変数
-	guildRoleList, _ := discord.GuildRoles(guildID)
+	guildRoleList, err := discord.GuildRoles(guildID)
+	if err != nil {
+		PrintError("Failed get GuildRoles", err)
+		return false
+	}
+
 	userData, _ := discord.GuildMember(guildID, userID)
+	if err != nil {
+		PrintError("Failed get UserData on Guild", err)
+		return false
+	}
+
 	roleData := userData.Roles
 	//ロール名チェック
 	for _, guildRole := range guildRoleList {
@@ -332,7 +362,7 @@ func hasRole(discord *discordgo.Session, guildID string, userID string, roleName
 func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session, authorID string, messageID string) {
 	voiceConection, err := joinUserVoiceChannel(discord, authorID)
 	if err != nil {
-		log.Println("Error : Failed join vc")
+		PrintError("Failed join vc", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -369,9 +399,12 @@ func findUserVoiceState(discord *discordgo.Session, userid string) *discordgo.Vo
 }
 
 func speechOnVoiceChat(userID string, session *SessionData, text string) {
-	data, _ := os.Open("./dic/" + session.guildID + ".txt")
-
+	data, err := os.Open("./dic/" + session.guildID + ".txt")
+	if err != nil {
+		PrintError("Failed open dictionary", err)
+	}
 	defer data.Close()
+
 	scanner := bufio.NewScanner(data)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -392,7 +425,7 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 
 	lang, speed, pitch, err := userConfig(userID, "", 0, 0)
 	if err != nil {
-		log.Println(err)
+		PrintError("Failed func userConfig()", err)
 	}
 
 	if lang == "auto" {
@@ -432,7 +465,7 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), lang)
 	err = playAudioFile(speed, pitch, session, voiceURL)
 	if err != nil {
-		log.Printf("Error:%s voiceURL:%s", err, voiceURL)
+		PrintError("Failed play Audio \""+voiceURL+"\"", err)
 		return
 	}
 	return
@@ -478,7 +511,7 @@ func playAudioFile(userSpeed float64, userPitch float64, session *SessionData, f
 func viewUserSetting(userID string, discord *discordgo.Session, channelID string, messageID string) {
 	lang, speed, pitch, err := userConfig(userID, "", 0, 0)
 	if err != nil {
-		log.Println("Faild get user config")
+		PrintError("Failed func userConfig()", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -491,7 +524,7 @@ func viewUserSetting(userID string, discord *discordgo.Session, channelID string
 	}
 	userData, err := discord.User(userID)
 	if err != nil {
-		log.Println("Faild get user data")
+		PrintError("Failed get UserData", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -505,8 +538,7 @@ func viewUserSetting(userID string, discord *discordgo.Session, channelID string
 	embed.Description = embedText
 	//送信
 	if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
-		log.Println("Faild send user config embed")
-		log.Println(err)
+		PrintError("Failed send Embed", err)
 	}
 }
 
@@ -515,21 +547,20 @@ func changeUserSpeed(userID string, message string, discord *discordgo.Session, 
 
 	speed, err := strconv.ParseFloat(speedText, 64)
 	if err != nil {
-		log.Println("Failed change speed string to float64")
+		PrintError("Failed speed string to float64", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	if speed < 0.5 || 5 < speed {
-		log.Println("Failed lowest or highest speed")
+		PrintError("Speed is too fast or too slow.", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	_, _, _, err = userConfig(userID, "", speed, 0)
 	if err != nil {
-		log.Println(err)
-		log.Println("Failed change speed")
+		PrintError("Failed write speed", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -542,21 +573,20 @@ func changeUserPitch(userID string, message string, discord *discordgo.Session, 
 
 	pitch, err := strconv.ParseFloat(pitchText, 64)
 	if err != nil {
-		log.Println("Failed change pitch string to float64")
+		PrintError("Failed pitch string to float64", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	if pitch < 0.5 || 1.5 < pitch {
-		log.Println("Failed lowest or highest pitch")
+		PrintError("Pitch is too high or too low.", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	_, _, _, err = userConfig(userID, "", 0, pitch)
 	if err != nil {
-		log.Println(err)
-		log.Println("Failed change pitch")
+		PrintError("Failed write pitch", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -570,7 +600,7 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 	if lang == "auto" {
 		_, _, _, err := userConfig(userID, lang, 0, 0)
 		if err != nil {
-			log.Println(err)
+			PrintError("Failed write lang", err)
 			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
@@ -580,15 +610,14 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 
 	_, err := language.Parse(lang)
 	if err != nil {
-		log.Println("Failed change to unknown Language")
+		PrintError("Lang is unknownLanguage", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	_, _, _, err = userConfig(userID, lang, 0, 0)
 	if err != nil {
-		log.Println(err)
-		log.Println("Failed change lang")
+		PrintError("Failed write lang", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -685,13 +714,13 @@ func changeSpeechLimit(session *SessionData, message string, discord *discordgo.
 
 	limit, err := strconv.Atoi(limitText)
 	if err != nil {
-		log.Println("Failed change speed string to int")
+		PrintError("Faliled limit string to int", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	if limit <= 0 || 50 < limit {
-		log.Println("Failed lowest or highest limit")
+		PrintError("Limit is too most or too lowest.", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -705,7 +734,8 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	word := strings.Replace(message, *prefix+" word ", "", 1)
 
 	if strings.Count(word, ",") != 1 {
-		log.Println("unknown word")
+		err := fmt.Errorf(word)
+		PrintError("Check failed word", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -716,7 +746,7 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	if os.IsNotExist(err) {
 		err = os.Mkdir("./dic", 0777)
 		if err != nil {
-			log.Println("Failed create directory")
+			PrintError("Failed create dictionary", err)
 			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
@@ -727,7 +757,7 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	//ファイルがあるか確認
 	text, err := readFile(fileName)
 	if err != nil {
-		log.Println(err)
+		PrintError("Failed func readFile()", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -743,7 +773,7 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	//書き込み
 	err = ioutil.WriteFile(fileName, []byte(text), 0777)
 	if err != nil {
-		log.Println("Failed write File")
+		PrintError("Failed write dictionary", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -756,7 +786,7 @@ func leaveVoiceChat(session *SessionData, discord *discordgo.Session, channelID 
 	speechOnVoiceChat("BOT", session, "さいなら")
 
 	if err := session.vcsession.Disconnect(); err != nil {
-		log.Println("Failed disconnect")
+		PrintError("Try disconect is Failed", err)
 		if reaction {
 			addReaction(discord, channelID, messageID, "❌")
 		}
@@ -816,7 +846,7 @@ func createPoll(message string, author string, discord *discordgo.Session, chann
 		//送信
 		message, err := discord.ChannelMessageSendEmbed(channelID, embed)
 		if err != nil {
-			log.Println(err)
+			PrintError("Failed send Embed", err)
 		}
 		//リアクションと中身の設定
 		for i := 1; i < len(text); i++ {
@@ -831,14 +861,16 @@ func createPoll(message string, author string, discord *discordgo.Session, chann
 func crateRoleManager(message string, author string, discord *discordgo.Session, channelID string, messageID string) {
 	//複数?あるか確認
 	if strings.Contains(message, ",") == false {
-		log.Println("unknown word")
+		err := fmt.Errorf(message)
+		PrintError("Check failed message contains", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	//roleが指定されてるか確認
 	if strings.Contains(message, "<@&") == false {
-		log.Println("unknown command")
+		err := fmt.Errorf(message)
+		PrintError("Check failed message contains", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
 	}
@@ -874,7 +906,7 @@ func crateRoleManager(message string, author string, discord *discordgo.Session,
 		//送信
 		message, err := discord.ChannelMessageSendEmbed(channelID, embed)
 		if err != nil {
-			log.Println(err)
+			PrintError("Failed send Embed", err)
 		}
 		//リアクションと中身の設定
 		for i := 1; i < len(text); i++ {
@@ -887,7 +919,8 @@ func crateRoleManager(message string, author string, discord *discordgo.Session,
 }
 
 func serverInfo(discord *discordgo.Session, guildID string, channelID string, messageID string) {
-	channels, _ := discord.GuildChannels(guildID)
+	channels, err := discord.GuildChannels(guildID)
+	PrintError("Failed get GuildChannels", err)
 	shouldCreateCategory := true
 	categoryID := ""
 	for _, channelData := range channels {
@@ -903,7 +936,7 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 			if channelData.ParentID == categoryID {
 				_, err := discord.ChannelDelete(channelData.ID)
 				if err != nil {
-					log.Println(err)
+					PrintError("Failed delete GuildChannel", err)
 					addReaction(discord, channelID, messageID, "❌")
 					return
 				}
@@ -912,7 +945,7 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 		//カテゴリー削除
 		_, err := discord.ChannelDelete(categoryID)
 		if err != nil {
-			log.Println(err)
+			PrintError("Failed get GuildCategory", err)
 			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
@@ -964,7 +997,7 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 		createChannelData.Name = "User: "
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
-			log.Println(err)
+			PrintError("Failed create GuildChannel (User)", err)
 			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
@@ -973,7 +1006,7 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 		createChannelData.Name = "Role: "
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
-			log.Println(err)
+			PrintError("Failed create GuildChannel (Role)", err)
 			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
@@ -982,7 +1015,7 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 		createChannelData.Name = "Emoji: "
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
-			log.Println(err)
+			PrintError("Failed create GuildChannel (Emoji)", err)
 			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
@@ -991,7 +1024,7 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 		createChannelData.Name = "Channel: "
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
 		if err != nil {
-			log.Println(err)
+			PrintError("Failed create GuildChannel (Channel)", err)
 			addReaction(discord, channelID, messageID, "❌")
 			return
 		}
@@ -1029,7 +1062,7 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 	embed.Description = Text
 	//送信
 	if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
-		log.Println("Faild send help embed")
+		PrintError("Failed send help Embed", err)
 		log.Println(err)
 	}
 }
@@ -1132,7 +1165,7 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 			err := discord.GuildMemberRoleAdd(guildID, userID, roleID)
 			//失敗時メッセージ出す
 			if err != nil {
-				log.Print(err)
+				PrintError("Failed add Role", err)
 				//embedのData作成
 				embed := &discordgo.MessageEmbed{
 					Type:        "rich",
@@ -1141,7 +1174,7 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 				}
 				//送信
 				if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
-					log.Println(err)
+					PrintError("Failed send add role error Embed", err)
 				}
 			}
 			return
@@ -1217,7 +1250,7 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 			err := discord.GuildMemberRoleRemove(guildID, userID, roleID)
 			//失敗時メッセージ出す
 			if err != nil {
-				log.Print(err)
+				PrintError("Failed remove Role", err)
 				//embedのData作成
 				embed := &discordgo.MessageEmbed{
 					Type:        "rich",
@@ -1226,7 +1259,7 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 				}
 				//送信
 				if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
-					log.Println(err)
+					PrintError("Failed send remove role error Embed", err)
 				}
 			}
 			return
@@ -1238,8 +1271,7 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 func addReaction(discord *discordgo.Session, channelID string, messageID string, reaction string) {
 	err := discord.MessageReactionAdd(channelID, messageID, reaction)
 	if err != nil {
-		log.Print("Error: addReaction Failed")
-		log.Println(err)
+		PrintError("Failed reaction add", err)
 	}
 	return
 }
@@ -1268,5 +1300,18 @@ func readFile(filePath string) (text string, returnErr error) {
 
 	//[]byteをstringに
 	text = string(byteText)
+	return
+}
+
+//Error表示
+func PrintError(message string, err error) {
+	pc, file, line, ok := runtime.Caller(100)
+	fname := filepath.Base(file)
+	position := ""
+	if ok {
+		position = fmt.Sprintf("%s:%d %s()", fname, line, runtime.FuncForPC(pc).Name())
+	}
+	fmt.Printf("---[Error]---\nMessage:\"%s\" %s\n", message, position)
+	fmt.Printf("%s\n", err.Error())
 	return
 }
