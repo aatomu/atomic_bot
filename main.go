@@ -719,7 +719,7 @@ func changeSpeechLimit(session *SessionData, message string, discord *discordgo.
 		return
 	}
 
-	if limit <= 0 || 50 < limit {
+	if limit <= 0 || 100 < limit {
 		PrintError("Limit is too most or too lowest.", err)
 		addReaction(discord, channelID, messageID, "❌")
 		return
@@ -765,9 +765,9 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	//textをにダブりがないかを確認&置換
 	replace := regexp.MustCompile(`,.*`)
 	check := replace.ReplaceAllString(word, "")
-	if strings.Contains(text, check) {
-		replace := regexp.MustCompile(`.*` + check + `,.*\n`)
-		text = replace.ReplaceAllString(text, "")
+	if strings.Contains(text, "\n"+check+",") {
+		replace := regexp.MustCompile(`\n` + check + `,.+?\n`)
+		text = replace.ReplaceAllString(text, "\n")
 	}
 	text = text + word + "\n"
 	//書き込み
@@ -1049,7 +1049,7 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 		*prefix + " pitch <0.5-1.5> : 声の高さを変更します(User単位)\n" +
 		*prefix + " lang <言語> : 読み上げ言語を変更します(User単位)\n" +
 		*prefix + " word <元>,<先> : 辞書を登録します(Guild単位)\n" +
-		*prefix + " limit <1-50> : 読み上げ文字数の上限を設定します(Guild単位)\n" +
+		*prefix + " limit <1-100> : 読み上げ文字数の上限を設定します(Guild単位)\n" +
 		*prefix + " leave : VCから切断します\n" +
 		"--Poll--\n" +
 		*prefix + " poll <質問>,<回答1>,<回答2>... : 質問を作成します\n" +
