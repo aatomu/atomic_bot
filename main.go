@@ -4,24 +4,18 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/url"
-	"path/filepath"
-	"runtime"
 	"time"
 
 	"log"
 	"os"
-	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 
+	"github.com/atomu21263/atomicgo"
 	"github.com/bwmarrin/discordgo"
-	"github.com/jonas747/dca"
 	"golang.org/x/text/language"
 )
 
@@ -41,7 +35,7 @@ func GetByGuildID(guildID string) (*SessionData, error) {
 			return s, nil
 		}
 	}
-	return nil, fmt.Errorf("Cant find GuildID")
+	return nil, fmt.Errorf("cant find guild id")
 }
 
 var (
@@ -59,12 +53,7 @@ func main() {
 	fmt.Println("token        :", *token)
 
 	//bot起動準備
-	discord, err := discordgo.New()
-	PrintError("Error logging", err)
-
-	//token入手
-	discord.Token = "Bot " + *token
-
+	discord := atomicgo.DiscordBotBoot(*token)
 	//eventトリガー設定
 	discord.AddHandler(onReady)
 	discord.AddHandler(onMessageCreate)
@@ -73,22 +62,12 @@ func main() {
 	discord.AddHandler(onMessageReactionRemove)
 
 	//起動
-	if err = discord.Open(); err != nil {
-		fmt.Println(err)
-	}
-	defer func() {
-		if err := discord.Close(); err != nil {
-			PrintError("Failed close", err)
-		}
-	}()
+	defer atomicgo.DiscordBotCleanup(discord)
 	//起動メッセージ表示
 	fmt.Println("Listening...")
 
 	//bot停止対策
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	<-sc
-
+	atomicgo.StopWait()
 }
 
 //BOTの準備が終わったときにCall
@@ -134,8 +113,7 @@ func serverInfoUpdate(discord *discordgo.Session) {
 	joinedGuilds, _ := discord.UserGuilds(100, "", "")
 	for _, guild := range joinedGuilds {
 		guildChannels, err := discord.GuildChannels(guild.ID)
-		if err != nil {
-			PrintError("Failed get GuildChannels", err)
+		if atomicgo.PrintError("Failed get GuildChannels", err) {
 			continue
 		}
 
@@ -160,8 +138,7 @@ func serverInfoUpdate(discord *discordgo.Session) {
 				//すべて
 				case strings.HasPrefix(channel.Name, "User:"):
 					guild, err := discord.State.Guild(channel.GuildID)
-					if err != nil {
-						PrintError("Failed get GuildData", err)
+					if atomicgo.PrintError("Failed get GuildData", err) {
 						continue
 					}
 
@@ -172,8 +149,7 @@ func serverInfoUpdate(discord *discordgo.Session) {
 					//ロール数
 				case strings.HasPrefix(channel.Name, "Role:"):
 					guild, _ := discord.State.Guild(channel.GuildID)
-					if err != nil {
-						PrintError("Failed get GuildData", err)
+					if atomicgo.PrintError("Failed get GuildData", err) {
 						continue
 					}
 
@@ -185,8 +161,7 @@ func serverInfoUpdate(discord *discordgo.Session) {
 					//絵文字
 				case strings.HasPrefix(channel.Name, "Emoji:"):
 					guild, err := discord.State.Guild(channel.GuildID)
-					if err != nil {
-						PrintError("Failed get GuildData", err)
+					if atomicgo.PrintError("Failed get GuildData", err) {
 						continue
 					}
 
@@ -197,8 +172,7 @@ func serverInfoUpdate(discord *discordgo.Session) {
 					//チャンネル数
 				case strings.HasPrefix(channel.Name, "Channel:"):
 					guild, err := discord.State.Guild(channel.GuildID)
-					if err != nil {
-						PrintError("Failed get GuildData", err)
+					if atomicgo.PrintError("Failed get GuildData", err) {
 						continue
 					}
 
@@ -220,33 +194,7 @@ func serverInfoUpdate(discord *discordgo.Session) {
 
 //メッセージが送られたときにCall
 func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
-	//一時変数
-	guildID := m.GuildID
-	guildData, err := discord.Guild(guildID)
-	guildName := ""
-	if err == nil {
-		guildName = guildData.Name
-	} else {
-		guildName = "DirectMessage"
-	}
-	channelID := m.ChannelID
-	channel, _ := discord.Channel(channelID)
-	messageID := m.ID
-	message := m.Content
-	author := m.Author.Username
-	authorNumber := m.Author.Discriminator
-	authorID := m.Author.ID
-	filesURL := ""
-	if len(m.Attachments) > 0 {
-		filesURL = "Files: \""
-		for _, file := range m.Attachments {
-			filesURL = filesURL + file.URL + ","
-		}
-		filesURL = filesURL + "\"  "
-	}
-
-	//表示
-	log.Print("Guild:\"" + guildName + "\"  Channel:\"" + channel.Name + "\"  " + filesURL + "<" + author + "#" + authorNumber + ">: " + message)
+	mData := atomicgo.MessageViewAndEdit(discord, m)
 
 	//bot 読み上げ無し のチェック
 	if m.Author.Bot || strings.HasPrefix(m.Content, ";") {
@@ -255,95 +203,89 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	switch {
 	//TTS関連
-	case isPrefix(message, "join"):
-		_, err := GetByGuildID(guildID)
+	case atomicgo.StringCheck(mData.Message, "join"):
+		_, err := GetByGuildID(mData.GuildID)
 		if err == nil {
-			addReaction(discord, channelID, messageID, "❌")
+			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
 		}
-		joinVoiceChat(channelID, guildID, discord, authorID, messageID)
+		joinVoiceChat(mData.ChannelID, mData.GuildID, discord, mData.UserID, mData.MessageID)
 		return
-	case isPrefix(message, "get"):
-		viewUserSetting(authorID, discord, channelID, messageID)
+	case atomicgo.StringCheck(mData.Message, "get"):
+		viewUserSetting(mData.UserID, discord, mData.ChannelID, mData.MessageID)
 		return
-	case isPrefix(message, "speed "):
-		changeUserSpeed(authorID, message, discord, channelID, messageID)
+	case atomicgo.StringCheck(mData.Message, "speed "):
+		changeUserSpeed(mData.UserID, mData.Message, discord, mData.ChannelID, mData.MessageID)
 		return
-	case isPrefix(message, "pitch "):
-		changeUserPitch(authorID, message, discord, channelID, messageID)
+	case atomicgo.StringCheck(mData.Message, "pitch "):
+		changeUserPitch(mData.UserID, mData.Message, discord, mData.ChannelID, mData.MessageID)
 		return
-	case isPrefix(message, "lang "):
-		changeUserLang(authorID, message, discord, channelID, messageID)
+	case atomicgo.StringCheck(mData.Message, "lang "):
+		changeUserLang(mData.UserID, mData.Message, discord, mData.ChannelID, mData.MessageID)
 		return
-	case isPrefix(message, "limit "):
-		session, err := GetByGuildID(guildID)
-		if err != nil || session.channelID != channelID {
-			addReaction(discord, channelID, messageID, "❌")
+	case atomicgo.StringCheck(mData.Message, "limit "):
+		session, err := GetByGuildID(mData.GuildID)
+		if err != nil || session.channelID != mData.ChannelID {
+			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
 		}
-		changeSpeechLimit(session, message, discord, channelID, messageID)
+		changeSpeechLimit(session, mData.Message, discord, mData.ChannelID, mData.MessageID)
 		return
-	case isPrefix(message, "word "):
-		addWord(message, guildID, discord, channelID, messageID)
+	case atomicgo.StringCheck(mData.Message, "word "):
+		addWord(mData.Message, mData.GuildID, discord, mData.ChannelID, mData.MessageID)
 		return
-	case isPrefix(message, "leave"):
-		session, err := GetByGuildID(guildID)
-		if err != nil || session.channelID != channelID {
-			addReaction(discord, channelID, messageID, "❌")
+	case atomicgo.StringCheck(mData.Message, "leave"):
+		session, err := GetByGuildID(mData.GuildID)
+		if err != nil || session.channelID != mData.ChannelID {
+			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
 		}
-		leaveVoiceChat(session, discord, channelID, messageID, true)
+		leaveVoiceChat(session, discord, mData.ChannelID, mData.MessageID, true)
 		return
 		//Poll関連
-	case isPrefix(message, "poll "):
-		createPoll(message, author, discord, channelID, messageID)
+	case atomicgo.StringCheck(mData.Message, "poll "):
+		createPoll(mData.Message, mData.UserName, discord, mData.ChannelID, mData.MessageID)
 		return
 	//Role関連
-	case isPrefix(message, "role "):
-		if hasRole(discord, guildID, authorID, "RoleController") {
-			crateRoleManager(message, author, discord, channelID, messageID)
+	case atomicgo.StringCheck(mData.Message, "role "):
+		if hasRole(discord, mData.GuildID, mData.UserID, "RoleController") {
+			crateRoleManager(mData.Message, mData.UserName, discord, mData.ChannelID, mData.MessageID)
 			return
 		}
-		addReaction(discord, channelID, messageID, "❌")
+		atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 		return
 	//info
-	case isPrefix(message, "info"):
-		if hasRole(discord, guildID, authorID, "InfoController") {
-			serverInfo(discord, guildID, channelID, messageID)
+	case atomicgo.StringCheck(mData.Message, "info"):
+		if hasRole(discord, mData.GuildID, mData.UserID, "InfoController") {
+			serverInfo(discord, mData.GuildID, mData.ChannelID, mData.MessageID)
 			return
 		}
-		addReaction(discord, channelID, messageID, "❌")
+		atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 		return
 		//help
-	case isPrefix(message, "help"):
-		sendHelp(discord, channelID)
+	case atomicgo.StringCheck(mData.Message, "help"):
+		sendHelp(discord, mData.ChannelID)
 		return
 	}
 
 	//読み上げ
-	session, err := GetByGuildID(guildID)
-	if err == nil && session.channelID == channelID {
-		speechOnVoiceChat(authorID, session, message)
+	session, err := GetByGuildID(mData.GuildID)
+	if err == nil && session.channelID == mData.ChannelID {
+		speechOnVoiceChat(mData.UserID, session, mData.Message)
 		return
 	}
 
-}
-
-func isPrefix(message string, check string) bool {
-	return strings.HasPrefix(message, *prefix+" "+check)
 }
 
 func hasRole(discord *discordgo.Session, guildID string, userID string, roleName string) bool {
 	//ロール名チェック用変数
 	guildRoleList, err := discord.GuildRoles(guildID)
-	if err != nil {
-		PrintError("Failed get GuildRoles", err)
+	if atomicgo.PrintError("Failed get GuildRoles", err) {
 		return false
 	}
 
 	userData, _ := discord.GuildMember(guildID, userID)
-	if err != nil {
-		PrintError("Failed get UserData on Guild", err)
+	if atomicgo.PrintError("Failed get UserData on Guild", err) {
 		return false
 	}
 
@@ -359,11 +301,10 @@ func hasRole(discord *discordgo.Session, guildID string, userID string, roleName
 	return false
 }
 
-func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session, authorID string, messageID string) {
-	voiceConection, err := joinUserVoiceChannel(discord, authorID)
-	if err != nil {
-		PrintError("Failed join vc", err)
-		addReaction(discord, channelID, messageID, "❌")
+func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session, userID string, messageID string) {
+	voiceConection, err := atomicgo.JoinUserVCchannel(discord, userID)
+	if atomicgo.PrintError("Failed join vc", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
@@ -377,31 +318,23 @@ func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session,
 		mut:         sync.Mutex{},
 	}
 	sessions = append(sessions, session)
-	addReaction(discord, channelID, messageID, "✅")
+	atomicgo.AddReaction(discord, channelID, messageID, "✅")
 	speechOnVoiceChat("BOT", session, "おはー")
-	return
-}
-
-func joinUserVoiceChannel(discord *discordgo.Session, userID string) (*discordgo.VoiceConnection, error) {
-	vs := findUserVoiceState(discord, userID)
-	return discord.ChannelVoiceJoin(vs.GuildID, vs.ChannelID, false, true)
-}
-
-func findUserVoiceState(discord *discordgo.Session, userid string) *discordgo.VoiceState {
-	for _, guild := range discord.State.Guilds {
-		for _, vs := range guild.VoiceStates {
-			if vs.UserID == userid {
-				return vs
-			}
-		}
-	}
-	return nil
 }
 
 func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	data, err := os.Open("./dic/" + session.guildID + ".txt")
-	if err != nil {
-		PrintError("Failed open dictionary", err)
+	if atomicgo.PrintError("Failed open dictionary", err) {
+		//フォルダがあるか確認
+		_, err := os.Stat("./dic")
+		//フォルダがなかったら作成
+		if os.IsNotExist(err) {
+			err = os.Mkdir("./dic", 0777)
+			atomicgo.PrintError("Failed create directory", err)
+		}
+		//ふぁいる作成
+		err = atomicgo.WriteFileFlash("./dic/"+session.guildID+".txt", []byte{}, 0777)
+		atomicgo.PrintError("Failed create dictionary", err)
 	}
 	defer data.Close()
 
@@ -424,9 +357,7 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	text = replace.ReplaceAllString(text, "")
 
 	lang, speed, pitch, err := userConfig(userID, "", 0, 0)
-	if err != nil {
-		PrintError("Failed func userConfig()", err)
-	}
+	atomicgo.PrintError("Failed func userConfig()", err)
 
 	if lang == "auto" {
 		lang = "ja"
@@ -463,56 +394,14 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	defer session.mut.Unlock()
 
 	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), lang)
-	err = playAudioFile(speed, pitch, session, voiceURL)
-	if err != nil {
-		PrintError("Failed play Audio \""+voiceURL+"\"", err)
-		return
-	}
-	return
-}
-
-func playAudioFile(userSpeed float64, userPitch float64, session *SessionData, filename string) error {
-	if err := session.vcsession.Speaking(true); err != nil {
-		return err
-	}
-	defer session.vcsession.Speaking(false)
-
-	opts := dca.StdEncodeOptions
-	opts.CompressionLevel = 0
-	opts.RawOutput = true
-	opts.Bitrate = 120
-	speed := userSpeed
-	pitch := userPitch * 100
-	opts.AudioFilter = fmt.Sprintf("aresample=24000,asetrate=24000*%f/100,atempo=100/%f*%f", pitch, pitch, speed)
-	encodeSession, err := dca.EncodeFile(filename, opts)
-	if err != nil {
-		return err
-	}
-
-	done := make(chan error)
-	stream := dca.NewStream(encodeSession, session.vcsession, done)
-	ticker := time.NewTicker(time.Second)
-
-	for {
-		select {
-		case err := <-done:
-			if err != nil && err != io.EOF {
-				return err
-			}
-			encodeSession.Truncate()
-			return nil
-		case <-ticker.C:
-			playbackPosition := stream.PlaybackPosition()
-			log.Println("Sending Now... : Playback:", playbackPosition)
-		}
-	}
+	err = atomicgo.PlayAudioFile(speed, pitch, session.vcsession, voiceURL)
+	atomicgo.PrintError("Failed play Audio \""+voiceURL+"\"", err)
 }
 
 func viewUserSetting(userID string, discord *discordgo.Session, channelID string, messageID string) {
 	lang, speed, pitch, err := userConfig(userID, "", 0, 0)
-	if err != nil {
-		PrintError("Failed func userConfig()", err)
-		addReaction(discord, channelID, messageID, "❌")
+	if atomicgo.PrintError("Failed func userConfig()", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 	//embedのData作成
@@ -523,9 +412,8 @@ func viewUserSetting(userID string, discord *discordgo.Session, channelID string
 		Color:       1000,
 	}
 	userData, err := discord.User(userID)
-	if err != nil {
-		PrintError("Failed get UserData", err)
-		addReaction(discord, channelID, messageID, "❌")
+	if atomicgo.PrintError("Failed get UserData", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 	embed.Title = "@" + userData.Username + "'s Speech Config"
@@ -538,7 +426,7 @@ func viewUserSetting(userID string, discord *discordgo.Session, channelID string
 	embed.Description = embedText
 	//送信
 	if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
-		PrintError("Failed send Embed", err)
+		atomicgo.PrintError("Failed send Embed", err)
 	}
 }
 
@@ -546,52 +434,46 @@ func changeUserSpeed(userID string, message string, discord *discordgo.Session, 
 	speedText := strings.Replace(message, *prefix+" speed ", "", 1)
 
 	speed, err := strconv.ParseFloat(speedText, 64)
-	if err != nil {
-		PrintError("Failed speed string to float64", err)
-		addReaction(discord, channelID, messageID, "❌")
+	if atomicgo.PrintError("Failed speed string to float64", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	if speed < 0.5 || 5 < speed {
-		PrintError("Speed is too fast or too slow.", err)
-		addReaction(discord, channelID, messageID, "❌")
+		atomicgo.PrintError("Speed is too fast or too slow.", err)
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	_, _, _, err = userConfig(userID, "", speed, 0)
-	if err != nil {
-		PrintError("Failed write speed", err)
-		addReaction(discord, channelID, messageID, "❌")
+	if atomicgo.PrintError("Failed write speed", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
-	addReaction(discord, channelID, messageID, "🔊")
-	return
+	atomicgo.AddReaction(discord, channelID, messageID, "🔊")
 }
 
 func changeUserPitch(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
 	pitchText := strings.Replace(message, *prefix+" pitch ", "", 1)
 
 	pitch, err := strconv.ParseFloat(pitchText, 64)
-	if err != nil {
-		PrintError("Failed pitch string to float64", err)
-		addReaction(discord, channelID, messageID, "❌")
+	if atomicgo.PrintError("Failed pitch string to float64", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	if pitch < 0.5 || 1.5 < pitch {
-		PrintError("Pitch is too high or too low.", err)
-		addReaction(discord, channelID, messageID, "❌")
+		atomicgo.PrintError("Pitch is too high or too low.", err)
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	_, _, _, err = userConfig(userID, "", 0, pitch)
-	if err != nil {
-		PrintError("Failed write pitch", err)
-		addReaction(discord, channelID, messageID, "❌")
+	if atomicgo.PrintError("Failed write pitch", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
-	addReaction(discord, channelID, messageID, "🎶")
-	return
+	atomicgo.AddReaction(discord, channelID, messageID, "🎶")
 }
 
 func changeUserLang(userID string, message string, discord *discordgo.Session, channelID string, messageID string) {
@@ -599,31 +481,27 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 
 	if lang == "auto" {
 		_, _, _, err := userConfig(userID, lang, 0, 0)
-		if err != nil {
-			PrintError("Failed write lang", err)
-			addReaction(discord, channelID, messageID, "❌")
+		if atomicgo.PrintError("Failed write lang", err) {
+			atomicgo.AddReaction(discord, channelID, messageID, "❌")
 			return
 		}
-		addReaction(discord, channelID, messageID, "🗣️")
+		atomicgo.AddReaction(discord, channelID, messageID, "🗣️")
 		return
 	}
 
 	_, err := language.Parse(lang)
-	if err != nil {
-		PrintError("Lang is unknownLanguage", err)
-		addReaction(discord, channelID, messageID, "❌")
+	if atomicgo.PrintError("Lang is unknownLanguage", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	_, _, _, err = userConfig(userID, lang, 0, 0)
-	if err != nil {
-		PrintError("Failed write lang", err)
-		addReaction(discord, channelID, messageID, "❌")
+	if atomicgo.PrintError("Failed write lang", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
-	addReaction(discord, channelID, messageID, "🗣️")
-	return
+	atomicgo.AddReaction(discord, channelID, messageID, "🗣️")
 }
 
 func userConfig(userID string, userLang string, userSpeed float64, userPitch float64) (lang string, speed float64, pitch float64, returnErr error) {
@@ -646,11 +524,11 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 	//ファイルパスの指定
 	fileName := "./UserConfig.txt"
 
-	text, err := readFile(fileName)
-	if err != nil {
-		log.Println(err)
+	byteText := atomicgo.ReadAndCreateFileFlash(fileName)
+	if byteText == nil {
 		return
 	}
+	text := string(byteText)
 	//UserIDからデータを入手
 	reg := regexp.MustCompile(`^UserID:.* Lang:auto Speed:1 Pitch:1$`)
 	for _, line := range strings.Split(text, "\n") {
@@ -699,11 +577,7 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 		//最後に書き込むテキストを追加(Write==trueの時)
 		writeText = writeText + "UserID:" + userID + " Lang:" + lang + " Speed:" + strconv.FormatFloat(speed, 'f', -1, 64) + " Pitch:" + strconv.FormatFloat(pitch, 'f', -1, 64)
 		//書き込み
-		err = ioutil.WriteFile(fileName, []byte(writeText), 0777)
-		if err != nil {
-			returnErr = err
-			return
-		}
+		atomicgo.WriteFileFlash(fileName, []byte(writeText), 0777)
 		log.Println("User userConfig Writed")
 	}
 	return
@@ -713,21 +587,19 @@ func changeSpeechLimit(session *SessionData, message string, discord *discordgo.
 	limitText := strings.Replace(message, *prefix+" limit ", "", 1)
 
 	limit, err := strconv.Atoi(limitText)
-	if err != nil {
-		PrintError("Faliled limit string to int", err)
-		addReaction(discord, channelID, messageID, "❌")
+	if atomicgo.PrintError("Faliled limit string to int", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	if limit <= 0 || 100 < limit {
-		PrintError("Limit is too most or too lowest.", err)
-		addReaction(discord, channelID, messageID, "❌")
+		atomicgo.PrintError("Limit is too most or too lowest.", err)
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	session.speechLimit = limit
-	addReaction(discord, channelID, messageID, "🥺")
-	return
+	atomicgo.AddReaction(discord, channelID, messageID, "🥺")
 }
 
 func addWord(message string, guildID string, discord *discordgo.Session, channelID string, messageID string) {
@@ -735,8 +607,8 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 
 	if strings.Count(word, ",") != 1 {
 		err := fmt.Errorf(word)
-		PrintError("Check failed word", err)
-		addReaction(discord, channelID, messageID, "❌")
+		atomicgo.PrintError("Check failed word", err)
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
@@ -745,9 +617,8 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	//ファイルがなかったら作成
 	if os.IsNotExist(err) {
 		err = os.Mkdir("./dic", 0777)
-		if err != nil {
-			PrintError("Failed create dictionary", err)
-			addReaction(discord, channelID, messageID, "❌")
+		if atomicgo.PrintError("Failed create dictionary", err) {
+			atomicgo.AddReaction(discord, channelID, messageID, "❌")
 			return
 		}
 	}
@@ -755,12 +626,7 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	//ファイルの指定
 	fileName := "./dic/" + guildID + ".txt"
 	//ファイルがあるか確認
-	text, err := readFile(fileName)
-	if err != nil {
-		PrintError("Failed func readFile()", err)
-		addReaction(discord, channelID, messageID, "❌")
-		return
-	}
+	text := string(atomicgo.ReadAndCreateFileFlash(fileName))
 
 	//textをにダブりがないかを確認&置換
 	replace := regexp.MustCompile(`,.*`)
@@ -771,24 +637,22 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	}
 	text = text + word + "\n"
 	//書き込み
-	err = ioutil.WriteFile(fileName, []byte(text), 0777)
-	if err != nil {
-		PrintError("Failed write dictionary", err)
-		addReaction(discord, channelID, messageID, "❌")
+	err = atomicgo.WriteFileFlash(fileName, []byte(text), 0777)
+	if atomicgo.PrintError("Failed write dictionary", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
-	addReaction(discord, channelID, messageID, "📄")
-	return
+	atomicgo.AddReaction(discord, channelID, messageID, "📄")
 }
 
 func leaveVoiceChat(session *SessionData, discord *discordgo.Session, channelID string, messageID string, reaction bool) {
 	speechOnVoiceChat("BOT", session, "さいなら")
 
 	if err := session.vcsession.Disconnect(); err != nil {
-		PrintError("Try disconect is Failed", err)
+		atomicgo.PrintError("Try disconect is Failed", err)
 		if reaction {
-			addReaction(discord, channelID, messageID, "❌")
+			atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		}
 		return
 	} else {
@@ -801,7 +665,7 @@ func leaveVoiceChat(session *SessionData, discord *discordgo.Session, channelID 
 		}
 		sessions = ret
 		if reaction {
-			addReaction(discord, channelID, messageID, "⛔")
+			atomicgo.AddReaction(discord, channelID, messageID, "⛔")
 		}
 		return
 	}
@@ -809,9 +673,9 @@ func leaveVoiceChat(session *SessionData, discord *discordgo.Session, channelID 
 
 func createPoll(message string, author string, discord *discordgo.Session, channelID string, messageID string) {
 	//複数?あるか確認
-	if strings.Contains(message, ",") == false {
+	if !strings.Contains(message, ",") {
 		log.Println("unknown word")
-		addReaction(discord, channelID, messageID, "❌")
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
@@ -845,33 +709,34 @@ func createPoll(message string, author string, discord *discordgo.Session, chann
 		embed.Description = Question
 		//送信
 		message, err := discord.ChannelMessageSendEmbed(channelID, embed)
-		if err != nil {
-			PrintError("Failed send Embed", err)
+		if atomicgo.PrintError("Failed send Embed", err) {
+			return
 		}
+
 		//リアクションと中身の設定
 		for i := 1; i < len(text); i++ {
 			Question = Question + alphabet[i] + text[i] + "\n"
-			addReaction(discord, channelID, message.ID, alphabet[i])
+			atomicgo.AddReaction(discord, channelID, message.ID, alphabet[i])
 		}
 	} else {
-		addReaction(discord, channelID, messageID, "❌")
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 	}
 }
 
 func crateRoleManager(message string, author string, discord *discordgo.Session, channelID string, messageID string) {
 	//複数?あるか確認
-	if strings.Contains(message, ",") == false {
+	if !strings.Contains(message, ",") {
 		err := fmt.Errorf(message)
-		PrintError("Check failed message contains", err)
-		addReaction(discord, channelID, messageID, "❌")
+		atomicgo.PrintError("Check failed message contains", err)
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
 	//roleが指定されてるか確認
-	if strings.Contains(message, "<@&") == false {
+	if !strings.Contains(message, "<@&") {
 		err := fmt.Errorf(message)
-		PrintError("Check failed message contains", err)
-		addReaction(discord, channelID, messageID, "❌")
+		atomicgo.PrintError("Check failed message contains", err)
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
 
@@ -905,22 +770,22 @@ func crateRoleManager(message string, author string, discord *discordgo.Session,
 		embed.Description = Question
 		//送信
 		message, err := discord.ChannelMessageSendEmbed(channelID, embed)
-		if err != nil {
-			PrintError("Failed send Embed", err)
+		if atomicgo.PrintError("Failed send Embed", err) {
+			return
 		}
 		//リアクションと中身の設定
 		for i := 1; i < len(text); i++ {
 			Question = Question + alphabet[i] + text[i] + "\n"
-			addReaction(discord, channelID, message.ID, alphabet[i])
+			atomicgo.AddReaction(discord, channelID, message.ID, alphabet[i])
 		}
 	} else {
-		addReaction(discord, channelID, messageID, "❌")
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 	}
 }
 
 func serverInfo(discord *discordgo.Session, guildID string, channelID string, messageID string) {
 	channels, err := discord.GuildChannels(guildID)
-	PrintError("Failed get GuildChannels", err)
+	atomicgo.PrintError("Failed get GuildChannels", err)
 	shouldCreateCategory := true
 	categoryID := ""
 	for _, channelData := range channels {
@@ -935,21 +800,19 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 		for _, channelData := range channels {
 			if channelData.ParentID == categoryID {
 				_, err := discord.ChannelDelete(channelData.ID)
-				if err != nil {
-					PrintError("Failed delete GuildChannel", err)
-					addReaction(discord, channelID, messageID, "❌")
+				if atomicgo.PrintError("Failed delete GuildChannel", err) {
+					atomicgo.AddReaction(discord, channelID, messageID, "❌")
 					return
 				}
 			}
 		}
 		//カテゴリー削除
 		_, err := discord.ChannelDelete(categoryID)
-		if err != nil {
-			PrintError("Failed get GuildCategory", err)
-			addReaction(discord, channelID, messageID, "❌")
+		if atomicgo.PrintError("Failed get GuildCategory", err) {
+			atomicgo.AddReaction(discord, channelID, messageID, "❌")
 			return
 		}
-		addReaction(discord, channelID, messageID, "🛑")
+		atomicgo.AddReaction(discord, channelID, messageID, "🛑")
 		return
 	}
 
@@ -963,9 +826,8 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 		}
 		//カテゴリー作成
 		categoryData, err := discord.GuildChannelCreateComplex(guildID, createChannelData)
-		if err != nil {
-			log.Println(err)
-			addReaction(discord, channelID, messageID, "❌")
+		if atomicgo.PrintError("Failed Create GuildCategory", err) {
+			atomicgo.AddReaction(discord, channelID, messageID, "❌")
 			return
 		}
 		//everyoneロールID
@@ -996,40 +858,36 @@ func serverInfo(discord *discordgo.Session, guildID string, channelID string, me
 		//User
 		createChannelData.Name = "User: "
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
-		if err != nil {
-			PrintError("Failed create GuildChannel (User)", err)
-			addReaction(discord, channelID, messageID, "❌")
+		if atomicgo.PrintError("Failed create GuildChannel (User)", err) {
+			atomicgo.AddReaction(discord, channelID, messageID, "❌")
 			return
 		}
 
 		//Roles
 		createChannelData.Name = "Role: "
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
-		if err != nil {
-			PrintError("Failed create GuildChannel (Role)", err)
-			addReaction(discord, channelID, messageID, "❌")
+		if atomicgo.PrintError("Failed create GuildChannel (Role)", err) {
+			atomicgo.AddReaction(discord, channelID, messageID, "❌")
 			return
 		}
 
 		//Emoji
 		createChannelData.Name = "Emoji: "
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
-		if err != nil {
-			PrintError("Failed create GuildChannel (Emoji)", err)
-			addReaction(discord, channelID, messageID, "❌")
+		if atomicgo.PrintError("Failed create GuildChannel (Emoji)", err) {
+			atomicgo.AddReaction(discord, channelID, messageID, "❌")
 			return
 		}
 
 		//Channel
 		createChannelData.Name = "Channel: "
 		_, err = discord.GuildChannelCreateComplex(guildID, createChannelData)
-		if err != nil {
-			PrintError("Failed create GuildChannel (Channel)", err)
-			addReaction(discord, channelID, messageID, "❌")
+		if atomicgo.PrintError("Failed create GuildChannel (Channel)", err) {
+			atomicgo.AddReaction(discord, channelID, messageID, "❌")
 			return
 		}
 
-		addReaction(discord, channelID, messageID, "📊")
+		atomicgo.AddReaction(discord, channelID, messageID, "📊")
 		return
 	}
 }
@@ -1062,7 +920,7 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 	embed.Description = Text
 	//送信
 	if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
-		PrintError("Failed send help Embed", err)
+		atomicgo.PrintError("Failed send help Embed", err)
 		log.Println(err)
 	}
 }
@@ -1096,54 +954,15 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 
 //リアクション追加でCall
 func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.MessageReactionAdd) {
-	//変数定義
-	userID := reaction.UserID
-	userData, _ := discord.User(userID)
-	user := userData.Username
-	emoji := reaction.Emoji.Name
-	channelID := reaction.ChannelID
-	channel, _ := discord.Channel(channelID)
-	messageID := reaction.MessageID
-	messageData, err := discord.ChannelMessage(channelID, messageID)
-	message := ""
-	if err == nil {
-		message = messageData.Content
-	}
-	guildID := reaction.GuildID
-	guildData, _ := discord.Guild(guildID)
-	guild := guildData.Name
-
-	//bot のチェック
-	if userData.Bot {
-		return
-	}
-
-	//改行あとを削除
-	if strings.Contains(message, "\n") {
-		replace := regexp.MustCompile(`\n.*`)
-		message = replace.ReplaceAllString(message, "..")
-	}
-
-	//文字数を制限
-	nowCount := 0
-	logText := ""
-	for _, word := range strings.Split(message, "") {
-		if nowCount < 20 {
-			logText = logText + word
-			nowCount++
-		}
-	}
-
-	//ログを表示
-	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + logText + "  User:" + user + "  Add:" + emoji)
+	rData := atomicgo.ReactionAddViewAndEdit(discord, reaction)
 
 	//embedがあるか確認
-	if messageData.Embeds == nil {
+	if rData.MessageData.Embeds == nil {
 		return
 	}
 
 	//Roleのやつか確認
-	for _, embed := range messageData.Embeds {
+	for _, embed := range rData.MessageData.Embeds {
 		footerData := embed.Footer
 		if footerData == nil || !strings.Contains(embed.Footer.Text, "RoleContoler") {
 			return
@@ -1152,20 +971,19 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 
 	//複配列をstringに変換
 	text := ""
-	for _, embed := range messageData.Embeds {
+	for _, embed := range rData.MessageData.Embeds {
 		text = text + embed.Description
 	}
 
 	//stringを配列にして1個ずつ処理
 	for _, embed := range strings.Split(text, "\n") {
 		//ロール追加
-		if strings.HasPrefix(embed, emoji) {
+		if strings.HasPrefix(embed, rData.Emoji) {
 			replace := regexp.MustCompile(`[^0-9]`)
 			roleID := replace.ReplaceAllString(embed, "")
-			err := discord.GuildMemberRoleAdd(guildID, userID, roleID)
+			err := discord.GuildMemberRoleAdd(rData.GuildID, rData.UserID, roleID)
 			//失敗時メッセージ出す
-			if err != nil {
-				PrintError("Failed add Role", err)
+			if atomicgo.PrintError("Failed add Role", err) {
 				//embedのData作成
 				embed := &discordgo.MessageEmbed{
 					Type:        "rich",
@@ -1173,9 +991,8 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 					Color:       1000,
 				}
 				//送信
-				if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
-					PrintError("Failed send add role error Embed", err)
-				}
+				_, err := discord.ChannelMessageSendEmbed(rData.ChannelID, embed)
+				atomicgo.PrintError("Failed send add role error Embed", err)
 			}
 			return
 		}
@@ -1184,51 +1001,15 @@ func onMessageReactionAdd(discord *discordgo.Session, reaction *discordgo.Messag
 
 //リアクション削除でCall
 func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.MessageReactionRemove) {
-	//変数定義
-	userID := reaction.UserID
-	userData, _ := discord.User(userID)
-	user := userData.Username
-	emoji := reaction.Emoji.Name
-	channelID := reaction.ChannelID
-	channel, _ := discord.Channel(channelID)
-	messageID := reaction.MessageID
-	messageData, _ := discord.ChannelMessage(channelID, messageID)
-	message := messageData.Content
-	guildID := reaction.GuildID
-	guildData, _ := discord.Guild(guildID)
-	guild := guildData.Name
-
-	//bot のチェック
-	if userData.Bot {
-		return
-	}
-
-	//改行あとを削除
-	if strings.Contains(message, "\n") {
-		replace := regexp.MustCompile(`\n.*`)
-		message = replace.ReplaceAllString(message, "..")
-	}
-
-	//文字数を制限
-	nowCount := 0
-	logText := ""
-	for _, word := range strings.Split(message, "") {
-		if nowCount < 20 {
-			logText = logText + word
-			nowCount++
-		}
-	}
-
-	//ログを表示
-	log.Print("Guild:\"" + guild + "\"  Channel:\"" + channel.Name + "\"  Message:" + logText + "  User:" + user + "  Remove:" + emoji)
+	rData := atomicgo.ReactionRemoveViewAndEdit(discord, reaction)
 
 	//embedがあるか確認
-	if messageData.Embeds == nil {
+	if rData.MessageData.Embeds == nil {
 		return
 	}
 
 	//Roleのやつか確認
-	for _, embed := range messageData.Embeds {
+	for _, embed := range rData.MessageData.Embeds {
 		footerData := embed.Footer
 		if footerData == nil || !strings.Contains(embed.Footer.Text, "RoleContoler") {
 			return
@@ -1237,20 +1018,19 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 
 	//複配列をstringに変換
 	text := ""
-	for _, embed := range messageData.Embeds {
+	for _, embed := range rData.MessageData.Embeds {
 		text = text + embed.Description
 	}
 
 	//stringを配列にして1個ずつ処理
 	for _, embed := range strings.Split(text, "\n") {
 		//ロール追加
-		if strings.HasPrefix(embed, emoji) {
+		if strings.HasPrefix(embed, rData.Emoji) {
 			replace := regexp.MustCompile(`[^0-9]`)
 			roleID := replace.ReplaceAllString(embed, "")
-			err := discord.GuildMemberRoleRemove(guildID, userID, roleID)
+			err := discord.GuildMemberRoleRemove(rData.GuildID, rData.UserID, roleID)
 			//失敗時メッセージ出す
-			if err != nil {
-				PrintError("Failed remove Role", err)
+			if atomicgo.PrintError("Failed remove Role", err) {
 				//embedのData作成
 				embed := &discordgo.MessageEmbed{
 					Type:        "rich",
@@ -1258,62 +1038,10 @@ func onMessageReactionRemove(discord *discordgo.Session, reaction *discordgo.Mes
 					Color:       1000,
 				}
 				//送信
-				if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
-					PrintError("Failed send remove role error Embed", err)
-				}
+				_, err := discord.ChannelMessageSendEmbed(rData.ChannelID, embed)
+				atomicgo.PrintError("Failed send remove role error Embed", err)
 			}
 			return
 		}
 	}
-}
-
-//リアクション追加用
-func addReaction(discord *discordgo.Session, channelID string, messageID string, reaction string) {
-	err := discord.MessageReactionAdd(channelID, messageID, reaction)
-	if err != nil {
-		PrintError("Failed reaction add", err)
-	}
-	return
-}
-
-//ファイル読み込み
-func readFile(filePath string) (text string, returnErr error) {
-	//ファイルがあるか確認
-	_, err := os.Stat(filePath)
-	//ファイルがなかったら作成
-	if os.IsNotExist(err) {
-		_, err = os.Create(filePath)
-		if err != nil {
-			log.Println(err)
-			returnErr = fmt.Errorf("missing crate file")
-			return
-		}
-	}
-
-	//読み込み
-	byteText, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		log.Println(err)
-		returnErr = fmt.Errorf("missing read file")
-		return
-	}
-
-	//[]byteをstringに
-	text = string(byteText)
-	return
-}
-
-//Error表示
-func PrintError(message string, err error) {
-	if err != nil {
-		pc, file, line, ok := runtime.Caller(1)
-		fname := filepath.Base(file)
-		position := ""
-		if ok {
-			position = fmt.Sprintf("%s:%d %s()", fname, line, runtime.FuncForPC(pc).Name())
-		}
-		fmt.Printf("---[Error]---\nMessage:\"%s\" %s\n", message, position)
-		fmt.Printf("%s\n", err.Error())
-	}
-	return
 }
