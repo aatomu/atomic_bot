@@ -53,7 +53,14 @@ func main() {
 	fmt.Println("token        :", *token)
 
 	//bot起動準備
-	discord := atomicgo.DiscordBotBoot(*token)
+	//bot起動準備
+	discord, err := discordgo.New()
+	if err != nil {
+		atomicgo.PrintError("Failed logging", err)
+	}
+
+	//token入手
+	discord.Token = "Bot " + *token
 	//eventトリガー設定
 	discord.AddHandler(onReady)
 	discord.AddHandler(onMessageCreate)
@@ -62,7 +69,13 @@ func main() {
 	discord.AddHandler(onMessageReactionRemove)
 
 	//起動
-	defer atomicgo.DiscordBotCleanup(discord)
+	if err = discord.Open(); err != nil {
+		atomicgo.PrintError("Failed Open", err)
+	}
+	defer func() {
+		err := discord.Close()
+		atomicgo.PrintError("Failed close", err)
+	}()
 	//起動メッセージ表示
 	fmt.Println("Listening...")
 
@@ -203,7 +216,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	switch {
 	//TTS関連
-	case atomicgo.StringCheck(mData.Message, "join"):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" join"):
 		_, err := GetByGuildID(mData.GuildID)
 		if err == nil {
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
@@ -211,19 +224,19 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		joinVoiceChat(mData.ChannelID, mData.GuildID, discord, mData.UserID, mData.MessageID)
 		return
-	case atomicgo.StringCheck(mData.Message, "get"):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" get"):
 		viewUserSetting(mData.UserID, discord, mData.ChannelID, mData.MessageID)
 		return
-	case atomicgo.StringCheck(mData.Message, "speed "):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" speed "):
 		changeUserSpeed(mData.UserID, mData.Message, discord, mData.ChannelID, mData.MessageID)
 		return
-	case atomicgo.StringCheck(mData.Message, "pitch "):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" pitch "):
 		changeUserPitch(mData.UserID, mData.Message, discord, mData.ChannelID, mData.MessageID)
 		return
-	case atomicgo.StringCheck(mData.Message, "lang "):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" lang "):
 		changeUserLang(mData.UserID, mData.Message, discord, mData.ChannelID, mData.MessageID)
 		return
-	case atomicgo.StringCheck(mData.Message, "limit "):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" limit "):
 		session, err := GetByGuildID(mData.GuildID)
 		if err != nil || session.channelID != mData.ChannelID {
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
@@ -231,10 +244,10 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		changeSpeechLimit(session, mData.Message, discord, mData.ChannelID, mData.MessageID)
 		return
-	case atomicgo.StringCheck(mData.Message, "word "):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" word "):
 		addWord(mData.Message, mData.GuildID, discord, mData.ChannelID, mData.MessageID)
 		return
-	case atomicgo.StringCheck(mData.Message, "leave"):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" leave"):
 		session, err := GetByGuildID(mData.GuildID)
 		if err != nil || session.channelID != mData.ChannelID {
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
@@ -243,11 +256,11 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		leaveVoiceChat(session, discord, mData.ChannelID, mData.MessageID, true)
 		return
 		//Poll関連
-	case atomicgo.StringCheck(mData.Message, "poll "):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" poll "):
 		createPoll(mData.Message, mData.UserName, discord, mData.ChannelID, mData.MessageID)
 		return
 	//Role関連
-	case atomicgo.StringCheck(mData.Message, "role "):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" role "):
 		if hasRole(discord, mData.GuildID, mData.UserID, "RoleController") {
 			crateRoleManager(mData.Message, mData.UserName, discord, mData.ChannelID, mData.MessageID)
 			return
@@ -255,7 +268,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 		return
 	//info
-	case atomicgo.StringCheck(mData.Message, "info"):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" info"):
 		if hasRole(discord, mData.GuildID, mData.UserID, "InfoController") {
 			serverInfo(discord, mData.GuildID, mData.ChannelID, mData.MessageID)
 			return
@@ -263,7 +276,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 		return
 		//help
-	case atomicgo.StringCheck(mData.Message, "help"):
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" help"):
 		sendHelp(discord, mData.ChannelID)
 		return
 	}
