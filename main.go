@@ -53,14 +53,8 @@ func main() {
 	fmt.Println("token        :", *token)
 
 	//bot起動準備
-	//bot起動準備
-	discord, err := discordgo.New()
-	if err != nil {
-		atomicgo.PrintError("Failed logging", err)
-	}
+	discord := atomicgo.DiscordBotSetup(*token)
 
-	//token入手
-	discord.Token = "Bot " + *token
 	//eventトリガー設定
 	discord.AddHandler(onReady)
 	discord.AddHandler(onMessageCreate)
@@ -69,13 +63,8 @@ func main() {
 	discord.AddHandler(onMessageReactionRemove)
 
 	//起動
-	if err = discord.Open(); err != nil {
-		atomicgo.PrintError("Failed Open", err)
-	}
-	defer func() {
-		err := discord.Close()
-		atomicgo.PrintError("Failed close", err)
-	}()
+	atomicgo.DiscordBotStart(discord)
+	defer atomicgo.DiscordBotEnd(discord)
 	//起動メッセージ表示
 	fmt.Println("Listening...")
 
@@ -537,8 +526,8 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 	//ファイルパスの指定
 	fileName := "./UserConfig.txt"
 
-	byteText := atomicgo.ReadAndCreateFileFlash(fileName)
-	if byteText == nil {
+	byteText, ok := atomicgo.ReadAndCreateFileFlash(fileName)
+	if !ok {
 		return
 	}
 	text := string(byteText)
@@ -639,7 +628,12 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	//ファイルの指定
 	fileName := "./dic/" + guildID + ".txt"
 	//ファイルがあるか確認
-	text := string(atomicgo.ReadAndCreateFileFlash(fileName))
+	textByte, ok := atomicgo.ReadAndCreateFileFlash(fileName)
+	if !ok {
+		atomicgo.PrintError("Failed Read dictionary", err)
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
+	}
+	text := string(textByte)
 
 	//textをにダブりがないかを確認&置換
 	replace := regexp.MustCompile(`,.*`)
