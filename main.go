@@ -208,6 +208,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" join"):
 		_, err := GetByGuildID(mData.GuildID)
 		if err == nil {
+			atomicgo.PrintError("VC joined "+mData.GuildID, fmt.Errorf("fined this server voice chat"))
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
 		}
@@ -228,6 +229,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" limit "):
 		session, err := GetByGuildID(mData.GuildID)
 		if err != nil || session.channelID != mData.ChannelID {
+			atomicgo.PrintError("VC non fined in "+mData.GuildID, err)
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
 		}
@@ -239,6 +241,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" leave"):
 		session, err := GetByGuildID(mData.GuildID)
 		if err != nil || session.channelID != mData.ChannelID {
+			atomicgo.PrintError("Failed Leave VC in "+mData.GuildID, err)
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
 		}
@@ -250,7 +253,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	//Role関連
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" role "):
-		if hasRole(discord, mData.GuildID, mData.UserID, "RoleController") {
+		if atomicgo.HaveRole(discord, mData.GuildID, mData.UserID, "RoleController") {
 			crateRoleManager(mData.Message, mData.UserName, discord, mData.ChannelID, mData.MessageID)
 			return
 		}
@@ -258,7 +261,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	//info
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" info"):
-		if hasRole(discord, mData.GuildID, mData.UserID, "InfoController") {
+		if atomicgo.HaveRole(discord, mData.GuildID, mData.UserID, "InfoController") {
 			serverInfo(discord, mData.GuildID, mData.ChannelID, mData.MessageID)
 			return
 		}
@@ -277,30 +280,6 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-}
-
-func hasRole(discord *discordgo.Session, guildID string, userID string, roleName string) bool {
-	//ロール名チェック用変数
-	guildRoleList, err := discord.GuildRoles(guildID)
-	if atomicgo.PrintError("Failed get GuildRoles", err) {
-		return false
-	}
-
-	userData, _ := discord.GuildMember(guildID, userID)
-	if atomicgo.PrintError("Failed get UserData on Guild", err) {
-		return false
-	}
-
-	roleData := userData.Roles
-	//ロール名チェック
-	for _, guildRole := range guildRoleList {
-		for _, roleID := range roleData {
-			if roleID == guildRole.ID && guildRole.Name == roleName {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session, userID string, messageID string) {
@@ -397,7 +376,7 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 
 	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), lang)
 	err = atomicgo.PlayAudioFile(speed, pitch, session.vcsession, voiceURL)
-	atomicgo.PrintError("Failed play Audio \""+voiceURL+"\"", err)
+	atomicgo.PrintError("Failed play Audio \""+read+"\" ", err)
 }
 
 func viewUserSetting(userID string, discord *discordgo.Session, channelID string, messageID string) {
