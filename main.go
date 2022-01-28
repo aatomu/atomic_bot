@@ -314,8 +314,10 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 			atomicgo.PrintError("Failed create directory", err)
 		}
 		//ふぁいる作成
-		err = atomicgo.WriteFileFlash("./dic/"+session.guildID+".txt", []byte{}, 0777)
-		atomicgo.PrintError("Failed create dictionary", err)
+		ok := atomicgo.WriteFileFlash("./dic/"+session.guildID+".txt", []byte{}, 0777)
+		if !ok {
+			atomicgo.PrintError("Failed create dictionary", fmt.Errorf("permission denied?"))
+		}
 	}
 	defer data.Close()
 
@@ -623,8 +625,9 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	}
 	text = text + word + "\n"
 	//書き込み
-	err = atomicgo.WriteFileFlash(fileName, []byte(text), 0777)
-	if atomicgo.PrintError("Failed write dictionary", err) {
+	ok = atomicgo.WriteFileFlash(fileName, []byte(text), 0777)
+	if !ok {
+		atomicgo.PrintError("Failed white dictionary", fmt.Errorf("permission denied?"))
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
