@@ -267,7 +267,43 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 		return
-		//help
+	case atomicgo.StringCheck(mData.Message, `^https://(canary\.discord\.com|discord\.com)/channels/[0-9]+/[0-9]+/[0-9]+$`):
+		data := regexp.MustCompile(`https://(canary\.discord\.com|discord\.com)/channels/`).ReplaceAllString(mData.Message, "")
+		IDs := strings.Split(data, "/")
+		tranceGuild, err := discord.Guild(IDs[0])
+		atomicgo.PrintError("GuildID to Struct", err)
+		tranceChannel, err := discord.Channel(IDs[1])
+		atomicgo.PrintError("ChannelID to Struct", err)
+		tranceMessage, err := discord.ChannelMessage(IDs[1], IDs[2])
+		atomicgo.PrintError("ChannelMessage to Struct", err)
+		if err != nil {
+			return
+		}
+		//embedのData作成
+		embed := &discordgo.MessageEmbed{
+			URL:         mData.Message,
+			Type:        "rich",
+			Description: tranceMessage.Content,
+			Timestamp:   string(tranceMessage.Timestamp),
+			Color:       0xFFFFFF,
+			Author: &discordgo.MessageEmbedAuthor{
+				Name:    tranceMessage.Author.Username,
+				IconURL: tranceMessage.Author.AvatarURL("128"),
+			},
+			Footer: &discordgo.MessageEmbedFooter{
+				IconURL: tranceGuild.IconURL(),
+				Text:    tranceChannel.Name,
+			},
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:  "URL:",
+					Value: mData.Message,
+				},
+			},
+		}
+		//送信
+		atomicgo.SendEmbed(discord, mData.ChannelID, embed)
+	//help
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" help"):
 		sendHelp(discord, mData.ChannelID)
 		return
