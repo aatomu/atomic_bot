@@ -241,7 +241,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" leave"):
 		session, err := GetByGuildID(mData.GuildID)
 		if err != nil || session.channelID != mData.ChannelID {
-			atomicgo.PrintError("Failed Leave VC in "+mData.GuildID, err)
+			atomicgo.PrintError("Failed Leave VC OR no reading channel in "+mData.GuildID, err)
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
 		}
