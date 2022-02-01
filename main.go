@@ -29,21 +29,12 @@ type SessionData struct {
 	mut         sync.Mutex
 }
 
-func GetByGuildID(guildID string) (*SessionData, error) {
-	for _, s := range sessions {
-		if s.guildID == guildID {
-			return s, nil
-		}
-	}
-	return nil, fmt.Errorf("cant find guild id")
-}
-
 var (
 	//変数定義
 	prefix   = flag.String("prefix", "", "call prefix")
 	token    = flag.String("token", "", "bot token")
 	clientID = ""
-	sessions = []*SessionData{}
+	sessions = atomicgo.ExMapGet()
 )
 
 func main() {
@@ -93,7 +84,11 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 func botStateUpdate(discord *discordgo.Session) {
 	//botのステータスアップデート
 	joinedServer := len(discord.State.Guilds)
-	joinedVC := len(sessions)
+	joinedVC := 0
+	sessions.Range(func(key interface{}, value interface{}) bool {
+		joinedVC++
+		return true
+	})
 	VC := ""
 	if joinedVC != 0 {
 		VC = " " + strconv.Itoa(joinedVC) + "鯖でお話し中"
@@ -206,9 +201,9 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	switch {
 	//TTS関連
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" join"):
-		_, err := GetByGuildID(mData.GuildID)
-		if err == nil {
-			atomicgo.PrintError("VC joined "+mData.GuildID, fmt.Errorf("fined this server voice chat"))
+		ok := sessions.ExMapCheck(mData.GuildID)
+		if ok {
+			atomicgo.PrintError("VC joined "+mData.GuildID+" join duplicate", fmt.Errorf("fined this server voice chat"))
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
 		}
@@ -227,25 +222,25 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		changeUserLang(mData.UserID, mData.Message, discord, mData.ChannelID, mData.MessageID)
 		return
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" limit "):
-		session, err := GetByGuildID(mData.GuildID)
-		if err != nil || session.channelID != mData.ChannelID {
-			atomicgo.PrintError("VC non fined in "+mData.GuildID, err)
+		session, write := sessions.ExMapLoad(mData.GuildID)
+		if write || session.(*SessionData).channelID != mData.ChannelID {
+			atomicgo.PrintError("VC non fined in "+mData.GuildID, fmt.Errorf("not fined this server voice chat"))
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
 		}
-		changeSpeechLimit(session, mData.Message, discord, mData.ChannelID, mData.MessageID)
+		changeSpeechLimit(session.(*SessionData), mData.Message, discord, mData.ChannelID, mData.MessageID)
 		return
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" word "):
 		addWord(mData.Message, mData.GuildID, discord, mData.ChannelID, mData.MessageID)
 		return
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" leave"):
-		session, err := GetByGuildID(mData.GuildID)
-		if err != nil || session.channelID != mData.ChannelID {
-			atomicgo.PrintError("Failed Leave VC OR no reading channel in "+mData.GuildID, err)
+		session, write := sessions.ExMapLoad(mData.GuildID)
+		if write || session.(*SessionData).channelID != mData.ChannelID {
+			atomicgo.PrintError("Failed Leave VC OR no reading channel in "+mData.GuildID, fmt.Errorf("not fined this server voice chat"))
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
 		}
-		leaveVoiceChat(session, discord, mData.ChannelID, mData.MessageID, true)
+		leaveVoiceChat(session.(*SessionData), discord, mData.ChannelID, mData.MessageID, true)
 		return
 		//Poll関連
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" poll "):
@@ -307,12 +302,38 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" help"):
 		sendHelp(discord, mData.ChannelID)
 		return
+		//その他
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" debug") && mData.UserID == "701336137012215818":
+		if atomicgo.StringCheck(mData.Message, "[0-9]$") {
+			guildID := atomicgo.StringReplace(mData.Message, "", "^"+*prefix+` debug\s*`)
+			log.Println("Deleting SessionItem : " + guildID)
+			sessions.ExMapDelete(mData.GuildID)
+			return
+		}
+		sessions.Range(func(key interface{}, value interface{}) bool {
+			guild, err := discord.Guild(value.(*SessionData).guildID)
+			if atomicgo.PrintError("Failed Get GuildData by GuildID", err) {
+				return true
+			}
+			channel, err := discord.Channel(value.(*SessionData).channelID)
+			if atomicgo.PrintError("Failed Get ChannelData by ChannelID", err) {
+				return true
+			}
+			atomicgo.SendEmbed(discord, mData.ChannelID, &discordgo.MessageEmbed{
+				Type:        "rich",
+				Title:       "DebugData\nGuild:" + guild.Name + "(" + value.(*SessionData).guildID + ")\nChannel:" + channel.Name + "(" + value.(*SessionData).channelID + ")",
+				Description: fmt.Sprintf("```%#v```", value.(*SessionData).vcsession),
+				Color:       0xff00ff,
+			})
+
+			return true
+		})
 	}
 
 	//読み上げ
-	session, err := GetByGuildID(mData.GuildID)
-	if err == nil && session.channelID == mData.ChannelID {
-		speechOnVoiceChat(mData.UserID, session, mData.Message)
+	session, ok := sessions.ExMapLoad(mData.GuildID)
+	if ok && session.(*SessionData).channelID == mData.ChannelID {
+		speechOnVoiceChat(mData.UserID, session.(*SessionData), mData.Message)
 		return
 	}
 
@@ -334,7 +355,7 @@ func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session,
 		speechLang:  "auto",
 		mut:         sync.Mutex{},
 	}
-	sessions = append(sessions, session)
+	sessions.ExMapWrite(guildID, session)
 	atomicgo.AddReaction(discord, channelID, messageID, "✅")
 	speechOnVoiceChat("BOT", session, "おはー")
 }
@@ -681,14 +702,7 @@ func leaveVoiceChat(session *SessionData, discord *discordgo.Session, channelID 
 		}
 		return
 	} else {
-		var ret []*SessionData
-		for _, v := range sessions {
-			if v.guildID == session.guildID {
-				continue
-			}
-			ret = append(ret, v)
-		}
-		sessions = ret
+		sessions.ExMapDelete(session.guildID)
 		if reaction {
 			atomicgo.AddReaction(discord, channelID, messageID, "⛔")
 		}
@@ -954,27 +968,29 @@ func sendHelp(discord *discordgo.Session, channelID string) {
 func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 
 	//セッションがあるか確認
-	session, err := GetByGuildID(v.GuildID)
-	if err != nil {
+	ok := sessions.ExMapCheck(v.GuildID)
+	if !ok {
 		return
 	}
 
+	session, _ := sessions.ExMapLoad(v.GuildID)
+
 	//VCに接続があるか確認
-	if session.vcsession == nil || !session.vcsession.Ready {
+	if session.(*SessionData).vcsession == nil || !session.(*SessionData).vcsession.Ready {
 		return
 	}
 
 	// ボイスチャンネルに誰かしらいたら return
 	for _, guild := range discord.State.Guilds {
 		for _, vs := range guild.VoiceStates {
-			if session.vcsession.ChannelID == vs.ChannelID && vs.UserID != clientID {
+			if session.(*SessionData).vcsession.ChannelID == vs.ChannelID && vs.UserID != clientID {
 				return
 			}
 		}
 	}
 
 	// ボイスチャンネルに誰もいなかったら Disconnect する
-	leaveVoiceChat(session, discord, "", "", false)
+	leaveVoiceChat(session.(*SessionData), discord, "", "", false)
 }
 
 //リアクション追加でCall
