@@ -222,8 +222,8 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		changeUserLang(mData.UserID, mData.Message, discord, mData.ChannelID, mData.MessageID)
 		return
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" limit "):
-		session, write := sessions.ExMapLoad(mData.GuildID)
-		if write || session.(*SessionData).channelID != mData.ChannelID {
+		session, ok := sessions.ExMapLoad(mData.GuildID)
+		if !ok || session.(*SessionData).channelID != mData.ChannelID {
 			atomicgo.PrintError("VC non fined in "+mData.GuildID, fmt.Errorf("not fined this server voice chat"))
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
@@ -234,8 +234,8 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		addWord(mData.Message, mData.GuildID, discord, mData.ChannelID, mData.MessageID)
 		return
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" leave"):
-		session, write := sessions.ExMapLoad(mData.GuildID)
-		if write || session.(*SessionData).channelID != mData.ChannelID {
+		session, ok := sessions.ExMapLoad(mData.GuildID)
+		if !ok || session.(*SessionData).channelID != mData.ChannelID {
 			atomicgo.PrintError("Failed Leave VC OR no reading channel in "+mData.GuildID, fmt.Errorf("not fined this server voice chat"))
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
 			return
