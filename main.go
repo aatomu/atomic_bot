@@ -645,7 +645,7 @@ func changeSpeechLimit(session *SessionData, message string, discord *discordgo.
 func addWord(message string, guildID string, discord *discordgo.Session, channelID string, messageID string) {
 	word := strings.Replace(message, *prefix+" word ", "", 1)
 
-	if strings.Count(word, ",") != 1 {
+	if !atomicgo.StringCheck(word, "^.+?,.+?$") {
 		err := fmt.Errorf(word)
 		atomicgo.PrintError("Check failed word", err)
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
