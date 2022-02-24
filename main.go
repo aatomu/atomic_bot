@@ -643,10 +643,10 @@ func changeSpeechLimit(session *SessionData, message string, discord *discordgo.
 }
 
 func addWord(message string, guildID string, discord *discordgo.Session, channelID string, messageID string) {
-	word := strings.Replace(message, *prefix+" word ", "", 1)
+	text := strings.Replace(message, *prefix+" word ", "", 1)
 
-	if !atomicgo.StringCheck(word, "^.+?,.+?$") {
-		err := fmt.Errorf(word)
+	if !atomicgo.StringCheck(text, "^.+?,.+?$") {
+		err := fmt.Errorf(text)
 		atomicgo.PrintError("Check failed word", err)
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
@@ -671,18 +671,20 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 		atomicgo.PrintError("Failed Read dictionary", err)
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 	}
-	text := string(textByte)
+	dic := string(textByte)
 
-	//textをにダブりがないかを確認&置換
-	replace := regexp.MustCompile(`,.*`)
-	check := replace.ReplaceAllString(word, "")
-	if strings.Contains(text, "\n"+check+",") {
-		replace := regexp.MustCompile(`\n` + check + `,.+?\n`)
+	//textをfrom toに
+	from := ""
+	to := ""
+	fmt.Sscanf("%s,%s", from, to)
+	//確認
+	if strings.Contains(dic, "\n"+from+",") {
+		replace := regexp.MustCompile(`\n` + from + `,.+?\n`)
 		text = replace.ReplaceAllString(text, "\n")
 	}
-	text = text + word + "\n"
+	text = text + text + "\n"
 	//書き込み
-	ok = atomicgo.WriteFileFlash(fileName, []byte(text), 0777)
+	ok = atomicgo.WriteFileFlash(fileName, []byte(dic), 0777)
 	if !ok {
 		atomicgo.PrintError("Failed white dictionary", fmt.Errorf("permission denied?"))
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
