@@ -682,7 +682,7 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 		replace := regexp.MustCompile(`\n` + from + `,.+?\n`)
 		text = replace.ReplaceAllString(text, "\n")
 	}
-	text = text + text + "\n"
+	dic = dic + text + "\n"
 	//書き込み
 	ok = atomicgo.WriteFileFlash(fileName, []byte(dic), 0777)
 	if !ok {
