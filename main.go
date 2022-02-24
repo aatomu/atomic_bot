@@ -695,19 +695,17 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 func leaveVoiceChat(session *SessionData, discord *discordgo.Session, channelID string, messageID string, reaction bool) {
 	speechOnVoiceChat("BOT", session, "さいなら")
 
-	if err := session.vcsession.Disconnect(); err != nil {
-		atomicgo.PrintError("Try disconect is Failed", err)
+	err := session.vcsession.Disconnect()
+	if atomicgo.PrintError("Try disconect is Failed", err) {
 		if reaction {
 			atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		}
-		return
 	} else {
-		sessions.ExMapDelete(session.guildID)
 		if reaction {
 			atomicgo.AddReaction(discord, channelID, messageID, "⛔")
 		}
-		return
 	}
+	sessions.ExMapDelete(session.guildID)
 }
 
 func createPoll(message string, author string, discord *discordgo.Session, channelID string, messageID string) {
