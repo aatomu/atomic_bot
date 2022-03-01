@@ -976,7 +976,7 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 	session, _ := sessions.ExMapLoad(v.GuildID)
 
 	//VCに接続があるか確認
-	if session.(*SessionData).vcsession == nil || !session.(*SessionData).vcsession.Ready {
+	if session.(*SessionData).vcsession == nil {
 		return
 	}
 
