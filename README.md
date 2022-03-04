@@ -97,6 +97,7 @@ Voice
 `<prefix> lang <language code || auto` : 読み上げる言語を変更します(User単位)  
 `<prefix> word <from>,<to>` : 辞書を登録します(Guild単位)  
 `<prefix> limit <1-50>` : 読み上げる文字数の上限を設定します(Guild単位)  
+`<prefix> bot` : botのメッセージを読み上げるかをトグルします(Guild単位)  
 `<prefix> leave` : VCから切断します  
   
 ### Poll関連  
