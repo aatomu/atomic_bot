@@ -27,6 +27,7 @@ type SessionData struct {
 	speechLimit int
 	speechLang  string
 	mut         sync.Mutex
+	enableBot   bool
 }
 
 var (
@@ -232,6 +233,20 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" word "):
 		addWord(mData.Message, mData.GuildID, discord, mData.ChannelID, mData.MessageID)
+		return
+	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" bot"):
+		session, ok := sessions.ExMapLoad(mData.GuildID)
+		if !ok || session.(*SessionData).channelID != mData.ChannelID {
+			session.(*SessionData).enableBot = !session.(*SessionData).enableBot
+			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "🤖")
+			if session.(*SessionData).enableBot {
+				atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "🔈")
+			} else {
+				atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "🔇")
+			}
+		} else {
+			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
+		}
 		return
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" leave"):
 		session, ok := sessions.ExMapLoad(mData.GuildID)
