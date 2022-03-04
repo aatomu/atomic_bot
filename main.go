@@ -194,8 +194,8 @@ func serverInfoUpdate(discord *discordgo.Session) {
 func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	mData := atomicgo.MessageViewAndEdit(discord, m)
 
-	//bot 読み上げ無し のチェック
-	if m.Author.Bot || strings.HasPrefix(m.Content, ";") {
+	// 読み上げ無し のチェック
+	if strings.HasPrefix(m.Content, ";") {
 		return
 	}
 
@@ -237,15 +237,15 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" bot"):
 		session, ok := sessions.ExMapLoad(mData.GuildID)
 		if !ok || session.(*SessionData).channelID != mData.ChannelID {
-			session.(*SessionData).enableBot = !session.(*SessionData).enableBot
-			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "🤖")
-			if session.(*SessionData).enableBot {
-				atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "🔈")
-			} else {
-				atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "🔇")
-			}
-		} else {
 			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "❌")
+			return
+		}
+		session.(*SessionData).enableBot = !session.(*SessionData).enableBot
+		atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "🤖")
+		if session.(*SessionData).enableBot {
+			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "🔈")
+		} else {
+			atomicgo.AddReaction(discord, mData.ChannelID, mData.MessageID, "🔇")
 		}
 		return
 	case atomicgo.StringCheck(mData.Message, "^"+*prefix+" leave"):
@@ -347,7 +347,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	//読み上げ
 	session, ok := sessions.ExMapLoad(mData.GuildID)
-	if ok && session.(*SessionData).channelID == mData.ChannelID {
+	if ok && session.(*SessionData).channelID == mData.ChannelID && !(m.Author.Bot && !session.(*SessionData).enableBot) {
 		speechOnVoiceChat(mData.UserID, session.(*SessionData), mData.Message)
 		return
 	}
