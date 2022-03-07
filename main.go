@@ -678,17 +678,6 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 		return
 	}
 
-	//フォルダがあるか確認
-	_, err := os.Stat("./dic")
-	//ファイルがなかったら作成
-	if os.IsNotExist(err) {
-		err = os.Mkdir("./dic", 0777)
-		if atomicgo.PrintError("Failed create dictionary", err) {
-			atomicgo.AddReaction(discord, channelID, messageID, "❌")
-			return
-		}
-	}
-
 	//ファイルの指定
 	fileName := "./dic/" + guildID + ".txt"
 	//dirがあるか確認
@@ -711,7 +700,7 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	//textをfrom toに
 	from := ""
 	to := ""
-	_, err = fmt.Sscanf(message, "%s,%s", from, to)
+	_, err := fmt.Sscanf(message, "%s,%s", from, to)
 	if atomicgo.PrintError("Failed message to dic in addWord()", err) {
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
