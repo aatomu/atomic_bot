@@ -23,11 +23,16 @@ type SessionData struct {
 	guildID     string
 	channelID   string
 	vcsession   *discordgo.VoiceConnection
-	speechSpeed float64
 	speechLimit int
 	speechLang  string
 	mut         sync.Mutex
 	enableBot   bool
+}
+
+type UserSetting struct {
+	lang  string
+	speed float64
+	pitch float64
 }
 
 var (
@@ -294,7 +299,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			URL:         mData.Message,
 			Type:        "rich",
 			Description: tranceMessage.Content,
-			Timestamp:   string(tranceMessage.Timestamp),
+			Timestamp:   tranceMessage.Timestamp.GoString(),
 			Color:       0xFFFFFF,
 			Author: &discordgo.MessageEmbedAuthor{
 				Name:    tranceMessage.Author.Username,
@@ -365,7 +370,6 @@ func joinVoiceChat(channelID string, guildID string, discord *discordgo.Session,
 		guildID:     guildID,
 		channelID:   channelID,
 		vcsession:   voiceConection,
-		speechSpeed: 1.5,
 		speechLimit: 50,
 		speechLang:  "auto",
 		mut:         sync.Mutex{},
@@ -411,13 +415,13 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	replace := regexp.MustCompile(`!|\?|{|}|<|>|`)
 	text = replace.ReplaceAllString(text, "")
 
-	lang, speed, pitch, err := userConfig(userID, "", 0, 0)
+	settingData, err := userConfig(userID, UserSetting{})
 	atomicgo.PrintError("Failed func userConfig()", err)
 
-	if lang == "auto" {
-		lang = "ja"
+	if settingData.lang == "auto" {
+		settingData.lang = "ja"
 		if regexp.MustCompile(`^[a-zA-Z0-9\s.,]+$`).MatchString(text) {
-			lang = "en"
+			settingData.lang = "en"
 		}
 	}
 
@@ -448,13 +452,13 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	session.mut.Lock()
 	defer session.mut.Unlock()
 
-	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), lang)
-	err = atomicgo.PlayAudioFile(speed, pitch, session.vcsession, voiceURL)
+	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), settingData.lang)
+	err = atomicgo.PlayAudioFile(settingData.speed, settingData.pitch, session.vcsession, voiceURL)
 	atomicgo.PrintError("Failed play Audio \""+read+"\" ", err)
 }
 
 func viewUserSetting(userID string, discord *discordgo.Session, channelID string, messageID string) {
-	lang, speed, pitch, err := userConfig(userID, "", 0, 0)
+	settingData, err := userConfig(userID, UserSetting{})
 	if atomicgo.PrintError("Failed func userConfig()", err) {
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
@@ -473,11 +477,11 @@ func viewUserSetting(userID string, discord *discordgo.Session, channelID string
 	}
 	embed.Title = "@" + userData.Username + "'s Speech Config"
 	embedText := "Lang:\n" +
-		lang + "\n" +
+		settingData.lang + "\n" +
 		"Speed:\n" +
-		fmt.Sprint(speed) + "\n" +
+		fmt.Sprint(settingData.speed) + "\n" +
 		"Pitch:\n" +
-		fmt.Sprint(pitch)
+		fmt.Sprint(settingData.pitch)
 	embed.Description = embedText
 	//送信
 	if _, err := discord.ChannelMessageSendEmbed(channelID, embed); err != nil {
@@ -500,7 +504,9 @@ func changeUserSpeed(userID string, message string, discord *discordgo.Session, 
 		return
 	}
 
-	_, _, _, err = userConfig(userID, "", speed, 0)
+	_, err = userConfig(userID, UserSetting{
+		speed: speed,
+	})
 	if atomicgo.PrintError("Failed write speed", err) {
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
@@ -523,7 +529,9 @@ func changeUserPitch(userID string, message string, discord *discordgo.Session, 
 		return
 	}
 
-	_, _, _, err = userConfig(userID, "", 0, pitch)
+	_, err = userConfig(userID, UserSetting{
+		pitch: pitch,
+	})
 	if atomicgo.PrintError("Failed write pitch", err) {
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
@@ -535,7 +543,9 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 	lang := strings.Replace(message, *prefix+" lang ", "", 1)
 
 	if lang == "auto" {
-		_, _, _, err := userConfig(userID, lang, 0, 0)
+		_, err := userConfig(userID, UserSetting{
+			lang: lang,
+		})
 		if atomicgo.PrintError("Failed write lang", err) {
 			atomicgo.AddReaction(discord, channelID, messageID, "❌")
 			return
@@ -550,7 +560,9 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 		return
 	}
 
-	_, _, _, err = userConfig(userID, lang, 0, 0)
+	_, err = userConfig(userID, UserSetting{
+		lang: lang,
+	})
 	if atomicgo.PrintError("Failed write lang", err) {
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
@@ -559,38 +571,36 @@ func changeUserLang(userID string, message string, discord *discordgo.Session, c
 	atomicgo.AddReaction(discord, channelID, messageID, "🗣️")
 }
 
-func userConfig(userID string, userLang string, userSpeed float64, userPitch float64) (lang string, speed float64, pitch float64, returnErr error) {
-	//変数定義
-	lang = ""
-	speed = 0.0
-	pitch = 0.0
-	returnErr = nil
-	writeText := ""
-
+func userConfig(userID string, user UserSetting) (result UserSetting, err error) {
 	//BOTチェック
 	if userID == "BOT" {
-		lang = "ja"
-		speed = 1.75
-		pitch = 1
-		returnErr = nil
-		return
+		return UserSetting{
+			lang:  "ja",
+			speed: 1.75,
+			pitch: 1,
+		}, nil
 	}
 
 	//ファイルパスの指定
 	fileName := "./UserConfig.txt"
 
-	byteText, ok := atomicgo.ReadAndCreateFileFlash(fileName)
+	if !atomicgo.CheckFile(fileName) {
+		if !atomicgo.CreateFile(fileName) {
+			return UserSetting{}, fmt.Errorf("failed Create Config File")
+		}
+	}
+	byteText, ok := atomicgo.ReadFile(fileName)
 	if !ok {
-		return
+		return UserSetting{}, fmt.Errorf("failed Read Config File")
 	}
 	text := string(byteText)
 	//UserIDからデータを入手
-	reg := regexp.MustCompile(`^UserID:.* Lang:auto Speed:1 Pitch:1$`)
+	writeText := ""
 	for _, line := range strings.Split(text, "\n") {
 		if strings.Contains(line, "UserID:"+userID) {
-			fmt.Sscanf(line, "UserID:"+userID+" Lang:%s Speed:%f Pitch:%f", &lang, &speed, &pitch)
+			fmt.Sscanf(line, "UserID:"+userID+" Lang:%s Speed:%f Pitch:%f", &result.lang, &result.speed, &result.pitch)
 		} else {
-			if line != "" && !reg.MatchString(line) {
+			if line != "" && !atomicgo.StringCheck(line, "^UserID:.* Lang:auto Speed:1 Pitch:1$") {
 				writeText = writeText + line + "\n"
 			}
 		}
@@ -598,39 +608,40 @@ func userConfig(userID string, userLang string, userSpeed float64, userPitch flo
 
 	//書き込みチェック用変数
 	shouldWrite := false
+	// チェック用
+	nilUserSetting := UserSetting{}
 	//上書き もしくはデータ作成
-	//(userLang||userSpeed||userPitchが設定済み
-	if userLang != "" || userSpeed != 0 || userPitch != 0 {
+	// user   が !nil とき 書き込み
+	if user != nilUserSetting {
 		shouldWrite = true
 	}
-	//(lang||speed||pitch)が入手できなかった時
-	if lang == "" || speed == 0 || pitch == 0 {
+
+	// result が  nil とき 書き込み
+	if result == nilUserSetting {
 		shouldWrite = true
+		result = UserSetting{
+			lang:  "auto",
+			speed: 1.0,
+			pitch: 1.0,
+		}
 	}
+
+	// 書き込み
 	if shouldWrite {
 		//lang
-		if lang == "" {
-			lang = "auto"
-		}
-		if userLang != "" {
-			lang = userLang
+		if user.lang != "" {
+			result.lang = user.lang
 		}
 		//speed
-		if speed == 0 {
-			speed = 1.0
-		}
-		if userSpeed != 0.0 {
-			speed = userSpeed
+		if user.speed != 0.0 {
+			result.speed = user.speed
 		}
 		//pitch
-		if pitch == 0.0 {
-			pitch = 1.0
-		}
-		if userPitch != 0 {
-			pitch = userPitch
+		if user.pitch != 0 {
+			result.pitch = user.pitch
 		}
 		//最後に書き込むテキストを追加(Write==trueの時)
-		writeText = writeText + "UserID:" + userID + " Lang:" + lang + " Speed:" + strconv.FormatFloat(speed, 'f', -1, 64) + " Pitch:" + strconv.FormatFloat(pitch, 'f', -1, 64)
+		writeText = writeText + fmt.Sprintf("UserID:%s Lang:%s Speed:%.2f Pitch:%.2f", userID, result.lang, result.speed, result.pitch)
 		//書き込み
 		atomicgo.WriteFileFlash(fileName, []byte(writeText), 0777)
 		log.Println("User userConfig Writed")
@@ -680,28 +691,41 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 
 	//ファイルの指定
 	fileName := "./dic/" + guildID + ".txt"
-	//ファイルがあるか確認
-	textByte, ok := atomicgo.ReadAndCreateFileFlash(fileName)
-	if !ok {
-		atomicgo.PrintError("Failed Read dictionary", err)
-		atomicgo.AddReaction(discord, channelID, messageID, "❌")
+	//dirがあるか確認
+	if !atomicgo.CheckFile("./dic/") {
+		if !atomicgo.CreateDir("./dic/", 0775) {
+			atomicgo.AddReaction(discord, channelID, messageID, "❌")
+			return
+		}
 	}
+	//fileがあるか確認
+	if !atomicgo.CheckFile(fileName) {
+		if !atomicgo.CreateFile(fileName) {
+			atomicgo.AddReaction(discord, channelID, messageID, "❌")
+			return
+		}
+	}
+	textByte, _ := atomicgo.ReadFile(fileName)
 	dic := string(textByte)
 
 	//textをfrom toに
 	from := ""
 	to := ""
-	fmt.Sscanf("%s,%s", from, to)
+	_, err = fmt.Sscanf(message, "%s,%s", from, to)
+	if atomicgo.PrintError("Failed message to dic in addWord()", err) {
+		atomicgo.AddReaction(discord, channelID, messageID, "❌")
+		return
+	}
+
 	//確認
 	if strings.Contains(dic, "\n"+from+",") {
-		replace := regexp.MustCompile(`\n` + from + `,.+?\n`)
-		text = replace.ReplaceAllString(text, "\n")
+		text = atomicgo.StringReplace(text, "\n", "\n"+from+",.+?\n")
 	}
+
 	dic = dic + text + "\n"
 	//書き込み
-	ok = atomicgo.WriteFileFlash(fileName, []byte(dic), 0777)
+	ok := atomicgo.WriteFileFlash(fileName, []byte(dic), 0777)
 	if !ok {
-		atomicgo.PrintError("Failed white dictionary", fmt.Errorf("permission denied?"))
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
 	}
