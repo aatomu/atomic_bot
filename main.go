@@ -711,7 +711,7 @@ func addWord(message string, guildID string, discord *discordgo.Session, channel
 	//textをfrom toに
 	from := ""
 	to := ""
-	_, err := fmt.Sscanf(message, "%s,%s", from, to)
+	_, err := fmt.Sscanf(strings.ReplaceAll(text, ",", " "), "%s %s", &from, &to)
 	if atomicgo.PrintError("Failed message to dic in addWord()", err) {
 		atomicgo.AddReaction(discord, channelID, messageID, "❌")
 		return
