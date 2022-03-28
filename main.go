@@ -67,7 +67,7 @@ func main() {
 				Type:        "rich",
 				Title:       "__Infomation__",
 				Description: "Sorry. Bot will  Shutdown. Will be try later.",
-				Color:       0xff00ff,
+				Color:       0x00008f,
 			})
 			return true
 		})
