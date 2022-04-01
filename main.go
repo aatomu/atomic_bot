@@ -338,7 +338,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		if atomicgo.StringCheck(mData.Message, "[0-9]$") {
 			guildID := atomicgo.StringReplace(mData.Message, "", "^"+*prefix+` debug\s*`)
 			log.Println("Deleting SessionItem : " + guildID)
-			sessions.ExMapDelete(mData.GuildID)
+			sessions.ExMapDelete(guildID)
 			return
 		}
 		sessions.Range(func(key interface{}, value interface{}) bool {
