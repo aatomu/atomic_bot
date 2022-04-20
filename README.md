@@ -70,7 +70,6 @@ Bot:
 ```
 General
  Manage Roles
- Manage Channels
  View Channels
 Text
  Send Messages
