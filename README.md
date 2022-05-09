@@ -64,13 +64,13 @@ Golangで自分のために作成
 ## -必要permission-  
 OAuth2:  
 ```
-BOT
+BOT  
+applications.commands
 ```
 Bot:  
 ```
 General
- Manage Roles
- View Channels
+ Read Messages/View Channels
 Text
  Send Messages
  Embed Links
@@ -81,29 +81,13 @@ Voice
  Connect
  Speak
 ```
-招待リンク `https://discord.com/api/oauth2/authorize?client_id=<Your Bot Application ID>&permissions=271666256&scope=bot`  
+招待リンク `https://discord.com/api/oauth2/authorize?client_id=<Your Bot Client ID>&permissions=3492928&scope=applications.commands%20bot`  
   
 ## -起動-  
-```go run main.go -prefix=<prefix> -token=<bot token>```
+```go run main.go -token=<bot token>```
   
 ## -botｺﾏﾝﾄﾞ-  
-### TTS関連  
-`<prefix> join` : VCに接続します  
-`<prefix> get` : 読み上げ設定を表示します(User単位)  
-`<prefix> speed <0.5-5>` : 読み上げ速度を設定します(User単位)  
-`<prefix> pitch <0.5-1.5>` : 声の高さを設定します(User単位)  
-`<prefix> lang <language code || auto` : 読み上げる言語を変更します(User単位)  
-`<prefix> word <from>,<to>` : 辞書を登録します(Guild単位)  
-`<prefix> limit <1-50>` : 読み上げる文字数の上限を設定します(Guild単位)  
-`<prefix> bot` : botのメッセージを読み上げるかをトグルします(Guild単位)  
-`<prefix> leave` : VCから切断します  
-  
-### Poll関連  
- `<prefix> poll <質問>,<回答1>,<回答2>...` : 質問を作成します
-  
-### Role関連  
-`<prefix> role <名前>,@<ロール1>,@<ロール2>...` : ロール管理を作成します*  
-> *RoleControllerという名前のロールがついている必要があります
+slash化しました
 
 ## コード元:  
 Bot Souce Code : https://github.com/takanakahiko/discord-tts  
