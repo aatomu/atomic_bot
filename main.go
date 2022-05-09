@@ -130,7 +130,7 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 		AddOption(slashlib.TypeString, "choice_9", "選択肢 9", false, 0, 0).
 		AddOption(slashlib.TypeString, "choice_10", "選択肢 10", false, 0, 0).
 		//AddCommand("role", "ロール管理メニューを生成します").
-		CommandCreate(discord, "508069234400690178")
+		CommandCreate(discord, "")
 }
 
 //メッセージが送られたときにCall
