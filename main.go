@@ -423,9 +423,8 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 		scanner := bufio.NewScanner(data)
 		for scanner.Scan() {
 			line := scanner.Text()
-			var from, to string
-			fmt.Sscanf(line, "%s %s", &from, &to)
-			text = strings.ReplaceAll(text, from, to)
+			words := strings.Split(line, ",")
+			text = strings.ReplaceAll(text, words[0], words[1])
 		}
 	}
 
