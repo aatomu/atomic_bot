@@ -233,13 +233,12 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		Discord:     discord,
 		Interaction: iData.Interaction,
 	}
-	// 時間かかる可能性があるからThinkingに
-	res.Thinking(false)
 
 	// 分岐
 	switch i.Command.Name {
 	//TTS
 	case "join":
+		res.Thinking(false)
 		if sessions.ExMapCheck(i.GuildID) {
 			Failed(res, "VoiceChat にすでに接続しています")
 			return
@@ -260,6 +259,8 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		Success(res, "ハロー!")
 		return
 	case "leave":
+		res.Thinking(false)
+
 		if !sessions.ExMapCheck(i.GuildID) {
 			Failed(res, "VoiceChat に接続していません")
 			return
@@ -274,6 +275,8 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		sessions.ExMapDelete(session.guildID)
 		return
 	case "get":
+		res.Thinking(false)
+
 		result, err := userConfig(i.UserID, UserSetting{})
 		if atomicgo.PrintError("Failed Get Config", err) {
 			Failed(res, "データのアクセスに失敗しました。")
@@ -289,6 +292,8 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		})
 		return
 	case "set":
+		res.Thinking(false)
+
 		// 保存
 		result, err := userConfig(i.UserID, UserSetting{})
 		if atomicgo.PrintError("Failed Get Config", err) {
@@ -318,6 +323,8 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		Success(res, "読み上げ設定を変更しました")
 		return
 	case "dic":
+		res.Thinking(false)
+
 		//ファイルの指定
 		fileName := "./dic/" + i.GuildID + ".txt"
 		//dicがあるか確認
@@ -353,6 +360,8 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		Success(res, "辞書を保存しました\n\""+from+"\" => \""+to+"\"")
 		return
 	case "read":
+		res.Thinking(false)
+
 		// VC接続中かチェック
 		if !sessions.ExMapCheck(i.GuildID) {
 			Failed(res, "VoiceChat に接続していません")
@@ -367,6 +376,8 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		return
 		//その他
 	case "poll":
+		res.Thinking(false)
+
 		title := i.CommandOptions["title"].StringValue()
 		choices := []string{}
 		choices = append(choices, i.CommandOptions["choice_1"].StringValue())
@@ -401,7 +412,6 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		for i := 0; i < len(choices); i++ {
 			discord.MessageReactionAdd(m.ChannelID, m.ID, reaction[i])
 		}
-	case "role":
 	}
 }
 
