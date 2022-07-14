@@ -38,7 +38,8 @@ var (
 	//変数定義
 	clientID = ""
 	token    = flag.String("token", "", "bot token")
-	sessions = atomicgo.ExMapGet()
+	sessions = map[string]*SessionData{}
+	save     sync.Mutex
 	dummy    = UserSetting{
 		Lang:  "auto",
 		Speed: 1.5,
@@ -63,15 +64,14 @@ func main() {
 	//起動
 	atomicgo.DiscordBotStart(discord)
 	defer func() {
-		sessions.Range(func(key interface{}, value interface{}) bool {
-			atomicgo.SendEmbed(discord, value.(*SessionData).channelID, &discordgo.MessageEmbed{
+		for _, session := range sessions {
+			atomicgo.SendEmbed(discord, session.channelID, &discordgo.MessageEmbed{
 				Type:        "rich",
 				Title:       "__Infomation__",
 				Description: "Sorry. Bot will Shutdown. Will be try later.",
 				Color:       0x00008f,
 			})
-			return true
-		})
+		}
 		atomicgo.DiscordBotEnd(discord)
 	}()
 	//起動メッセージ表示
@@ -90,11 +90,7 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 		for {
 			<-oneSecTicker.C
 			joinedGuilds := len(discord.State.Guilds)
-			joinedVC := 0
-			sessions.Range(func(key interface{}, value interface{}) bool {
-				joinedVC++
-				return true
-			})
+			joinedVC := len(sessions)
 			VC := ""
 			if joinedVC != 0 {
 				VC = fmt.Sprintf(" %d鯖でお話し中", joinedVC)
@@ -142,77 +138,39 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	switch {
-	case atomicgo.StringCheck(mData.Message, `^https?://(canary\.)?discord\.com/channels/([0-9]+?/?){3}$`):
-		data := atomicgo.StringReplace(mData.Message, "", `^https?://(canary\.)?discord\.com/channels/`)
-		IDs := strings.Split(data, "/")
-		tranceGuild, err := discord.Guild(IDs[0])
-		atomicgo.PrintError("GuildID to Struct", err)
-		tranceChannel, err := discord.Channel(IDs[1])
-		atomicgo.PrintError("ChannelID to Struct", err)
-		tranceMessage, err := discord.ChannelMessage(IDs[1], IDs[2])
-		atomicgo.PrintError("ChannelMessage to Struct", err)
-		if err != nil {
-			return
-		}
-		//embedのData作成
-		embed := &discordgo.MessageEmbed{
-			URL:         mData.Message,
-			Type:        "rich",
-			Description: tranceMessage.Content,
-			Timestamp:   tranceMessage.Timestamp.Add(9 * time.Hour).Format("2006-01-02T15:04:05+09:00"),
-			Color:       0xFFFFFF,
-			Author: &discordgo.MessageEmbedAuthor{
-				Name:    tranceMessage.Author.Username,
-				IconURL: tranceMessage.Author.AvatarURL("128"),
-			},
-			Footer: &discordgo.MessageEmbedFooter{
-				IconURL: tranceGuild.IconURL(),
-				Text:    tranceChannel.Name,
-			},
-			Fields: []*discordgo.MessageEmbedField{
-				{
-					Name:  "URL:",
-					Value: mData.Message,
-				},
-			},
-		}
-		//送信
-		atomicgo.SendEmbed(discord, mData.ChannelID, embed)
-		//その他
-	case atomicgo.StringCheck(mData.Message, "^a debug") && mData.UserID == "701336137012215818":
+	// debug
+	if atomicgo.StringCheck(mData.Message, "^a debug") && mData.UserID == "701336137012215818" {
 		if atomicgo.StringCheck(mData.Message, "[0-9]$") {
 			guildID := atomicgo.StringReplace(mData.Message, "", `^a debug\s*`)
 			log.Println("Deleting SessionItem : " + guildID)
-			sessions.ExMapDelete(mData.GuildID)
+			save.Lock()
+			defer save.Unlock()
+			delete(sessions, guildID)
 			return
 		}
-		sessions.Range(func(key interface{}, value interface{}) bool {
-			guild, err := discord.Guild(value.(*SessionData).guildID)
+		for _, session := range sessions {
+			guild, err := discord.Guild(session.guildID)
 			if atomicgo.PrintError("Failed Get GuildData by GuildID", err) {
-				return true
+				continue
 			}
-			channel, err := discord.Channel(value.(*SessionData).channelID)
+			channel, err := discord.Channel(session.channelID)
 			if atomicgo.PrintError("Failed Get ChannelData by ChannelID", err) {
-				return true
+				continue
 			}
 			atomicgo.SendEmbed(discord, mData.ChannelID, &discordgo.MessageEmbed{
-				Type:        "rich",
-				Title:       "DebugData\nGuild:" + guild.Name + "(" + value.(*SessionData).guildID + ")\nChannel:" + channel.Name + "(" + value.(*SessionData).channelID + ")",
-				Description: fmt.Sprintf("```%#v```", value.(*SessionData).vcsession),
-				Color:       0xff00ff,
+				Type:  "rich",
+				Title: "Joined VoiceChannel\nGuild:" + guild.Name + "(" + session.guildID + ")\nChannel:" + channel.Name + "(" + session.channelID + ")",
+				Color: 0xff00ff,
 			})
-
-			return true
-		})
+		}
 	}
 
 	//読み上げ
-	session, ok := sessions.ExMapLoad(mData.GuildID)
+	session, ok := sessions[mData.GuildID]
 	if ok &&
-		session.(*SessionData).channelID == mData.ChannelID &&
-		!(m.Author.Bot && !session.(*SessionData).enableBot) {
-		speechOnVoiceChat(mData.UserID, session.(*SessionData), mData.Message)
+		session.channelID == mData.ChannelID &&
+		!(m.Author.Bot && !session.enableBot) {
+		speechOnVoiceChat(mData.UserID, session, mData.Message)
 		return
 	}
 
@@ -234,46 +192,58 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		Interaction: iData.Interaction,
 	}
 
+	_, isJoined := sessions[i.GuildID]
 	// 分岐
 	switch i.Command.Name {
 	//TTS
 	case "join":
 		res.Thinking(false)
-		if sessions.ExMapCheck(i.GuildID) {
+
+		if isJoined {
 			Failed(res, "VoiceChat にすでに接続しています")
 			return
 		}
+
 		vcSession, err := atomicgo.JoinUserVCchannel(discord, i.UserID, false, true)
 		if atomicgo.PrintError("Failed Join VoiceChat", err) {
 			Failed(res, "ユーザーが VoiceChatに接続していない\nもしくは権限が不足しています")
 			return
 		}
+
 		session := &SessionData{
 			guildID:   i.GuildID,
 			channelID: i.ChannelID,
 			vcsession: vcSession,
 			mut:       sync.Mutex{},
 		}
-		sessions.ExMapWrite(i.GuildID, session)
+
+		save.Lock()
+		defer save.Unlock()
+		sessions[i.GuildID] = session
+
 		speechOnVoiceChat("BOT", session, "おはー")
 		Success(res, "ハロー!")
 		return
+
 	case "leave":
 		res.Thinking(false)
 
-		if !sessions.ExMapCheck(i.GuildID) {
+		if !isJoined {
 			Failed(res, "VoiceChat に接続していません")
 			return
 		}
-		sessionInterface, _ := sessions.ExMapLoad(i.GuildID)
-		session := sessionInterface.(*SessionData)
+		session := sessions[i.GuildID]
 
 		speechOnVoiceChat("BOT", session, "さいなら")
 		Success(res, "グッバイ!")
 		time.Sleep(1 * time.Second)
 		session.vcsession.Disconnect()
-		sessions.ExMapDelete(session.guildID)
+
+		save.Lock()
+		defer save.Unlock()
+		delete(sessions, i.GuildID)
 		return
+
 	case "get":
 		res.Thinking(false)
 
@@ -282,6 +252,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			Failed(res, "データのアクセスに失敗しました。")
 			return
 		}
+
 		res.Follow(&discordgo.WebhookParams{
 			Embeds: []*discordgo.MessageEmbed{
 				{
@@ -291,6 +262,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			},
 		})
 		return
+
 	case "set":
 		res.Thinking(false)
 
@@ -300,6 +272,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			Failed(res, "読み上げ設定を読み込めませんでした")
 			return
 		}
+
 		// チェック
 		if newSpeed, ok := i.CommandOptions["speed"]; ok {
 			result.Speed = newSpeed.FloatValue()
@@ -322,6 +295,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		}
 		Success(res, "読み上げ設定を変更しました")
 		return
+
 	case "dic":
 		res.Thinking(false)
 
@@ -345,35 +319,38 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			Failed(res, "使用できない文字が含まれています")
 			return
 		}
+
 		//確認
 		if strings.Contains(dic, from+",") {
 			dic = atomicgo.StringReplace(dic, "", "\n"+from+",.*")
 		}
-
 		dic = dic + from + "," + to + "\n"
+
 		//書き込み
 		ok := atomicgo.WriteFileFlash(fileName, []byte(dic), 0777)
 		if !ok {
 			Failed(res, "辞書の書き込みに失敗しました")
 			return
 		}
+
 		Success(res, "辞書を保存しました\n\""+from+"\" => \""+to+"\"")
 		return
+
 	case "read":
 		res.Thinking(false)
 
 		// VC接続中かチェック
-		if !sessions.ExMapCheck(i.GuildID) {
+		if !isJoined {
 			Failed(res, "VoiceChat に接続していません")
 			return
 		}
 
-		sessionInterface, _ := sessions.ExMapLoad(i.GuildID)
-		session := sessionInterface.(*SessionData)
+		session := sessions[i.GuildID]
 		session.enableBot = !session.enableBot
-		sessions.ExMapWrite(i.GuildID, session)
+
 		Success(res, fmt.Sprintf("Botメッセージの読み上げを %t に変更しました", session.enableBot))
 		return
+
 		//その他
 	case "poll":
 		res.Thinking(false)
@@ -547,13 +524,10 @@ func userConfig(userID string, user UserSetting) (result UserSetting, err error)
 func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 
 	//セッションがあるか確認
-	ok := sessions.ExMapCheck(v.GuildID)
+	session, ok := sessions[v.GuildID]
 	if !ok {
 		return
 	}
-
-	sessionInterface, _ := sessions.ExMapLoad(v.GuildID)
-	session := sessionInterface.(*SessionData)
 
 	// ボイスチャンネルに誰かしらいたら return
 	for _, guild := range discord.State.Guilds {
@@ -566,7 +540,9 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 
 	// ボイスチャンネルに誰もいなかったら Disconnect する
 	session.vcsession.Disconnect()
-	sessions.ExMapDelete(session.guildID)
+	save.Lock()
+	defer save.Unlock()
+	delete(sessions, v.GuildID)
 }
 
 // Command Failed Message
