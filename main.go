@@ -153,14 +153,28 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			if atomicgo.PrintError("Failed Get GuildData by GuildID", err) {
 				continue
 			}
+
 			channel, err := discord.Channel(session.channelID)
 			if atomicgo.PrintError("Failed Get ChannelData by ChannelID", err) {
 				continue
 			}
+
+			var member []string
+			for _, guild := range discord.State.Guilds {
+				for _, vs := range guild.VoiceStates {
+					if vs.ChannelID != session.channelID {
+						continue
+					}
+					user, _ := discord.User(vs.UserID)
+					member = append(member, user.String())
+				}
+			}
+
 			atomicgo.SendEmbed(discord, mData.ChannelID, &discordgo.MessageEmbed{
-				Type:  "rich",
-				Title: "Joined VoiceChannel\nGuild:" + guild.Name + "(" + session.guildID + ")\nChannel:" + channel.Name + "(" + session.channelID + ")",
-				Color: 0xff00ff,
+				Type:        "rich",
+				Title:       fmt.Sprintf("Joined VoiceChannel\nGuild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
+				Description: fmt.Sprintf("Members:```\n%s```", member),
+				Color:       0xff00ff,
 			})
 		}
 	}
