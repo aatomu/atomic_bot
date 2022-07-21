@@ -24,7 +24,7 @@ type SessionData struct {
 	guildID   string
 	channelID string
 	vcsession *discordgo.VoiceConnection
-	mut       sync.Mutex
+	lead      sync.Mutex
 	enableBot bool
 }
 
@@ -228,7 +228,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			guildID:   i.GuildID,
 			channelID: i.ChannelID,
 			vcsession: vcSession,
-			mut:       sync.Mutex{},
+			lead:      sync.Mutex{},
 		}
 
 		save.Lock()
@@ -453,8 +453,8 @@ func speechOnVoiceChat(userID string, session *SessionData, text string) {
 	read := atomicgo.StringCut(text, 100)
 
 	//読み上げ待機
-	session.mut.Lock()
-	defer session.mut.Unlock()
+	session.lead.Lock()
+	defer session.lead.Unlock()
 
 	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), settingData.Lang)
 	var end chan bool
