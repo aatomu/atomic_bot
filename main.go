@@ -26,11 +26,13 @@ type Sessions struct {
 }
 
 type SessionData struct {
-	guildID   string
-	channelID string
-	vcsession *discordgo.VoiceConnection
-	lead      sync.Mutex
-	enableBot bool
+	guildID    string
+	channelID  string
+	vcsession  *discordgo.VoiceConnection
+	lead       sync.Mutex
+	enableBot  bool
+	mutedUsers []string
+	updateInfo bool
 }
 
 type UserSetting struct {
@@ -116,6 +118,9 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 		AddOption(slashlib.TypeString, "from", "置換元", true, 0, 0).
 		AddOption(slashlib.TypeString, "to", "置換先", true, 0, 0).
 		AddCommand("read", "Botメッセージを読み上げるか変更します").
+		AddCommand("mute", "指定されたユーザーメッセージの読み上げを変更します").
+		AddOption(slashlib.TypeUser, "user", "読み上げするかを変更するユーザー", true, 0, 0).
+		AddCommand("update", "参加,退出を通知します").
 		//その他
 		AddCommand("poll", "投票を作成します").
 		AddOption(slashlib.TypeString, "title", "投票のタイトル", true, 0, 0).
@@ -183,7 +188,13 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	//読み上げ
 	session := sessions.Get(mData.GuildID)
-	if session.IsJoined() && session.channelID == mData.ChannelID && !(m.Author.Bot && !session.enableBot) {
+	isMuted := false
+	for _, mutedUserID := range session.mutedUsers {
+		if mutedUserID == mData.UserID {
+			isMuted = true
+		}
+	}
+	if session.IsJoined() && !isMuted && session.channelID == mData.ChannelID && !(m.Author.Bot && !session.enableBot) {
 		session.Speech(mData.UserID, mData.Message)
 		return
 	}
@@ -358,6 +369,44 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 
 		Success(res, fmt.Sprintf("Botメッセージの読み上げを %t に変更しました", session.enableBot))
 		return
+
+	case "mute":
+		res.Thinking(false)
+
+		// VC接続中かチェック
+		if !session.IsJoined() {
+			Failed(res, "VoiceChat に接続していません")
+			return
+		}
+
+		user := i.CommandOptions["user"].UserValue(discord)
+		if user == nil {
+			Failed(res, "Unknown User")
+			return
+		}
+		toMute := true
+		for _, userID := range session.mutedUsers {
+			if userID == user.ID {
+				toMute = false
+			}
+		}
+		if toMute {
+			session.mutedUsers = append(session.mutedUsers, user.ID)
+		} else {
+			var newMutedUsers []string
+			for _, userID := range session.mutedUsers {
+				if userID == user.ID {
+					continue
+				}
+				newMutedUsers = append(newMutedUsers, userID)
+			}
+			session.mutedUsers = newMutedUsers
+		}
+		Success(res, fmt.Sprintf("%s のメッセージの読み上げを %t に変更しました", user.String(), toMute))
+		return
+
+	case "update":
+		res.Thinking(false)
 
 		//その他
 	case "poll":
