@@ -143,8 +143,6 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		if atomicgo.StringCheck(mData.Message, "[0-9]$") {
 			guildID := atomicgo.StringReplace(mData.Message, "", `^a debug\s*`)
 			log.Println("Deleting SessionItem : " + guildID)
-			save.Lock()
-			defer save.Unlock()
 			delete(sessions, guildID)
 			return
 		}
