@@ -20,6 +20,11 @@ import (
 	"golang.org/x/text/language"
 )
 
+type Sessions struct {
+	save   sync.Mutex
+	guilds []*SessionData
+}
+
 type SessionData struct {
 	guildID   string
 	channelID string
@@ -38,8 +43,7 @@ var (
 	//変数定義
 	clientID = ""
 	token    = flag.String("token", "", "bot token")
-	sessions = map[string]*SessionData{}
-	save     sync.Mutex
+	sessions Sessions
 	dummy    = UserSetting{
 		Lang:  "auto",
 		Speed: 1.5,
@@ -64,7 +68,7 @@ func main() {
 	//起動
 	atomicgo.DiscordBotStart(discord)
 	defer func() {
-		for _, session := range sessions {
+		for _, session := range sessions.guilds {
 			atomicgo.SendEmbed(discord, session.channelID, &discordgo.MessageEmbed{
 				Type:        "rich",
 				Title:       "__Infomation__",
@@ -90,7 +94,7 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 		for {
 			<-oneSecTicker.C
 			joinedGuilds := len(discord.State.Guilds)
-			joinedVC := len(sessions)
+			joinedVC := len(sessions.guilds)
 			VC := ""
 			if joinedVC != 0 {
 				VC = fmt.Sprintf(" %d鯖でお話し中", joinedVC)
@@ -143,10 +147,10 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		if atomicgo.StringCheck(mData.Message, "[0-9]$") {
 			guildID := atomicgo.StringReplace(mData.Message, "", `^a debug\s*`)
 			log.Println("Deleting SessionItem : " + guildID)
-			delete(sessions, guildID)
+			sessions.Delete(guildID)
 			return
 		}
-		for _, session := range sessions {
+		for _, session := range sessions.guilds {
 			guild, err := discord.Guild(session.guildID)
 			if atomicgo.PrintError("Failed Get GuildData by GuildID", err) {
 				continue
@@ -170,7 +174,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 			atomicgo.SendEmbed(discord, mData.ChannelID, &discordgo.MessageEmbed{
 				Type:        "rich",
-				Title:       fmt.Sprintf("Joined VoiceChannel\nGuild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
+				Title:       fmt.Sprintf("Guild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
 				Description: fmt.Sprintf("Members:```\n%s```", member),
 				Color:       0xff00ff,
 			})
@@ -178,11 +182,9 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	//読み上げ
-	session, ok := sessions[mData.GuildID]
-	if ok &&
-		session.channelID == mData.ChannelID &&
-		!(m.Author.Bot && !session.enableBot) {
-		speechOnVoiceChat(mData.UserID, session, mData.Message)
+	session := sessions.Get(mData.GuildID)
+	if session.IsJoined() && session.channelID == mData.ChannelID && !(m.Author.Bot && !session.enableBot) {
+		session.Speech(mData.UserID, mData.Message)
 		return
 	}
 
@@ -204,14 +206,14 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		Interaction: iData.Interaction,
 	}
 
-	_, isJoined := sessions[i.GuildID]
+	session := sessions.Get(i.GuildID)
 	// 分岐
 	switch i.Command.Name {
 	//TTS
 	case "join":
 		res.Thinking(false)
 
-		if isJoined {
+		if session.IsJoined() {
 			Failed(res, "VoiceChat にすでに接続しています")
 			return
 		}
@@ -229,31 +231,26 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			lead:      sync.Mutex{},
 		}
 
-		save.Lock()
-		defer save.Unlock()
-		sessions[i.GuildID] = session
+		sessions.Add(session)
 
-		speechOnVoiceChat("BOT", session, "おはー")
+		session.Speech("BOT", "おはー")
 		Success(res, "ハロー!")
 		return
 
 	case "leave":
 		res.Thinking(false)
 
-		if !isJoined {
+		if !session.IsJoined() {
 			Failed(res, "VoiceChat に接続していません")
 			return
 		}
-		session := sessions[i.GuildID]
 
-		speechOnVoiceChat("BOT", session, "さいなら")
+		session.Speech("BOT", "さいなら")
 		Success(res, "グッバイ!")
 		time.Sleep(1 * time.Second)
 		session.vcsession.Disconnect()
 
-		save.Lock()
-		defer save.Unlock()
-		delete(sessions, i.GuildID)
+		sessions.Delete(i.GuildID)
 		return
 
 	case "get":
@@ -352,12 +349,11 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		res.Thinking(false)
 
 		// VC接続中かチェック
-		if !isJoined {
+		if !session.IsJoined() {
 			Failed(res, "VoiceChat に接続していません")
 			return
 		}
 
-		session := sessions[i.GuildID]
 		session.enableBot = !session.enableBot
 
 		Success(res, fmt.Sprintf("Botメッセージの読み上げを %t に変更しました", session.enableBot))
@@ -402,62 +398,6 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			discord.MessageReactionAdd(m.ChannelID, m.ID, reaction[i])
 		}
 	}
-}
-
-func speechOnVoiceChat(userID string, session *SessionData, text string) {
-	if CheckDic(session.guildID) {
-		data, _ := os.Open("./dic/" + session.guildID + ".txt")
-		defer data.Close()
-
-		scanner := bufio.NewScanner(data)
-		for scanner.Scan() {
-			line := scanner.Text()
-			words := strings.Split(line, ",")
-			text = strings.ReplaceAll(text, words[0], words[1])
-		}
-	}
-
-	if regexp.MustCompile(`<a:|<:|<@|<#|<@&|http|` + "```").MatchString(text) {
-		text = "すーきっぷ"
-	}
-
-	//! ? { } < >を読み上げない
-	replace := regexp.MustCompile(`!|\?|{|}|<|>|`)
-	text = replace.ReplaceAllString(text, "")
-
-	settingData, err := userConfig(userID, UserSetting{})
-	atomicgo.PrintError("Failed func userConfig()", err)
-
-	if settingData.Lang == "auto" {
-		settingData.Lang = "ja"
-		if regexp.MustCompile(`^[a-zA-Z0-9\s.,]+$`).MatchString(text) {
-			settingData.Lang = "en"
-		}
-	}
-
-	//改行停止
-	if strings.Contains(text, "\n") {
-		replace := regexp.MustCompile(`\n.*`)
-		text = replace.ReplaceAllString(text, "")
-	}
-
-	//隠れてるところを読み上げない
-	if strings.Contains(text, "||") {
-		replace := regexp.MustCompile(`\|\|.*\|\|`)
-		text = replace.ReplaceAllString(text, "ピーーーー")
-	}
-
-	//text cut
-	read := atomicgo.StringCut(text, 100)
-
-	//読み上げ待機
-	session.lead.Lock()
-	defer session.lead.Unlock()
-
-	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), settingData.Lang)
-	var end chan bool
-	err = atomicgo.PlayAudioFile(settingData.Speed, settingData.Pitch, session.vcsession, voiceURL, end)
-	atomicgo.PrintError("Failed play Audio \""+read+"\" ", err)
 }
 
 func userConfig(userID string, user UserSetting) (result UserSetting, err error) {
@@ -536,8 +476,8 @@ func userConfig(userID string, user UserSetting) (result UserSetting, err error)
 func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 
 	//セッションがあるか確認
-	session, ok := sessions[v.GuildID]
-	if !ok {
+	session := sessions.Get(v.GuildID)
+	if session != nil {
 		return
 	}
 
@@ -552,9 +492,104 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 
 	// ボイスチャンネルに誰もいなかったら Disconnect する
 	session.vcsession.Disconnect()
-	save.Lock()
-	defer save.Unlock()
-	delete(sessions, v.GuildID)
+	sessions.Delete(v.GuildID)
+}
+
+// Get Session
+func (s *Sessions) Get(guildID string) *SessionData {
+	for _, session := range s.guilds {
+		if session.guildID != guildID {
+			continue
+		}
+		return session
+	}
+	return nil
+}
+
+// Add Session
+func (s *Sessions) Add(newSession *SessionData) {
+	s.save.Lock()
+	defer s.save.Unlock()
+	s.guilds = append(s.guilds, newSession)
+}
+
+// Delete Session
+func (s *Sessions) Delete(guildID string) {
+	s.save.Lock()
+	defer s.save.Unlock()
+	var newSessions []*SessionData
+	for _, session := range s.guilds {
+		if session.guildID == guildID {
+			if session.vcsession != nil {
+				session.vcsession.Disconnect()
+			}
+			continue
+		}
+		newSessions = append(newSessions, session)
+	}
+	s.guilds = newSessions
+}
+
+// Is Joined Session
+func (session *SessionData) IsJoined() bool {
+	return session.vcsession == nil
+}
+
+// Speech in Session
+func (session *SessionData) Speech(userID string, text string) {
+	if CheckDic(session.guildID) {
+		data, _ := os.Open("./dic/" + session.guildID + ".txt")
+		defer data.Close()
+
+		scanner := bufio.NewScanner(data)
+		for scanner.Scan() {
+			line := scanner.Text()
+			words := strings.Split(line, ",")
+			text = strings.ReplaceAll(text, words[0], words[1])
+		}
+	}
+
+	if regexp.MustCompile(`<a:|<:|<@|<#|<@&|http|` + "```").MatchString(text) {
+		text = "すーきっぷ"
+	}
+
+	//! ? { } < >を読み上げない
+	replace := regexp.MustCompile(`!|\?|{|}|<|>|`)
+	text = replace.ReplaceAllString(text, "")
+
+	settingData, err := userConfig(userID, UserSetting{})
+	atomicgo.PrintError("Failed func userConfig()", err)
+
+	if settingData.Lang == "auto" {
+		settingData.Lang = "ja"
+		if regexp.MustCompile(`^[a-zA-Z0-9\s.,]+$`).MatchString(text) {
+			settingData.Lang = "en"
+		}
+	}
+
+	//改行停止
+	if strings.Contains(text, "\n") {
+		replace := regexp.MustCompile(`\n.*`)
+		text = replace.ReplaceAllString(text, "")
+	}
+
+	//隠れてるところを読み上げない
+	if strings.Contains(text, "||") {
+		replace := regexp.MustCompile(`\|\|.*\|\|`)
+		text = replace.ReplaceAllString(text, "ピーーーー")
+	}
+
+	//text cut
+	read := atomicgo.StringCut(text, 100)
+
+	//読み上げ待機
+	session.lead.Lock()
+	defer session.lead.Unlock()
+
+	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), settingData.Lang)
+	var end chan bool
+	err = atomicgo.PlayAudioFile(settingData.Speed, settingData.Pitch, session.vcsession, voiceURL, end)
+	atomicgo.PrintError("Failed play Audio \""+read+"\" ", err)
 }
 
 // Command Failed Message
