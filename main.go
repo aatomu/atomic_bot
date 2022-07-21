@@ -157,14 +157,14 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 				continue
 			}
 
-			var member []string
+			var member string
 			for _, guild := range discord.State.Guilds {
 				for _, vs := range guild.VoiceStates {
 					if vs.ChannelID != session.channelID {
 						continue
 					}
 					user, _ := discord.User(vs.UserID)
-					member = append(member, user.String())
+					member += "," + user.String()
 				}
 			}
 
