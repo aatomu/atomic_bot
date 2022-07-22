@@ -190,16 +190,17 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	//読み上げ
 	session := sessions.Get(mData.GuildID)
 	isMuted := false
-	for _, mutedUserID := range session.mutedUsers {
-		if mutedUserID == mData.UserID {
-			isMuted = true
+	if session != nil {
+		for _, mutedUserID := range session.mutedUsers {
+			if mutedUserID == mData.UserID {
+				isMuted = true
+			}
+		}
+		if session.IsJoined() && !isMuted && session.channelID == mData.ChannelID && !(m.Author.Bot && !session.enableBot) {
+			session.Speech(mData.UserID, mData.Message)
+			return
 		}
 	}
-	if session.IsJoined() && !isMuted && session.channelID == mData.ChannelID && !(m.Author.Bot && !session.enableBot) {
-		session.Speech(mData.UserID, mData.Message)
-		return
-	}
-
 }
 
 // InteractionCreate
@@ -538,7 +539,7 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 
 	//セッションがあるか確認
 	session := sessions.Get(v.GuildID)
-	if session != nil {
+	if session == nil {
 		return
 	}
 
@@ -628,7 +629,7 @@ func (s *Sessions) Delete(guildID string) {
 
 // Is Joined Session
 func (session *SessionData) IsJoined() bool {
-	return session.vcsession != nil
+	return session != nil
 }
 
 // Speech in Session
