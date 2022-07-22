@@ -167,21 +167,10 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 				continue
 			}
 
-			var member string
-			for _, guild := range discord.State.Guilds {
-				for _, vs := range guild.VoiceStates {
-					if vs.ChannelID != session.channelID {
-						continue
-					}
-					user, _ := discord.User(vs.UserID)
-					member += "," + user.String()
-				}
-			}
-
 			atomicgo.SendEmbed(discord, mData.ChannelID, &discordgo.MessageEmbed{
 				Type:        "rich",
 				Title:       fmt.Sprintf("Guild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
-				Description: fmt.Sprintf("Members:```\n%s```", member),
+				Description: fmt.Sprintf("Members:```\n%s```", session.beforeUsers),
 				Color:       0xff00ff,
 			})
 		}
