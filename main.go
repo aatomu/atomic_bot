@@ -26,13 +26,14 @@ type Sessions struct {
 }
 
 type SessionData struct {
-	guildID    string
-	channelID  string
-	vcsession  *discordgo.VoiceConnection
-	lead       sync.Mutex
-	enableBot  bool
-	mutedUsers []string
-	updateInfo bool
+	guildID     string
+	channelID   string
+	vcsession   *discordgo.VoiceConnection
+	lead        sync.Mutex
+	enableBot   bool
+	mutedUsers  []string
+	updateInfo  bool
+	beforeUsers []string
 }
 
 type UserSetting struct {
@@ -408,6 +409,17 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 	case "update":
 		res.Thinking(false)
 
+		// VC接続中かチェック
+		if !session.IsJoined() {
+			Failed(res, "VoiceChat に接続していません")
+			return
+		}
+
+		session.updateInfo = !session.updateInfo
+
+		Success(res, fmt.Sprintf("ボイスチャットの参加/退出の通知を %t に変更しました", session.updateInfo))
+		return
+
 		//その他
 	case "poll":
 		res.Thinking(false)
@@ -530,18 +542,53 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 		return
 	}
 
-	// ボイスチャンネルに誰かしらいたら return
+	// ボイスチャンネルに誰かいるか
+	isLeave := true
 	for _, guild := range discord.State.Guilds {
 		for _, vs := range guild.VoiceStates {
 			if session.vcsession.ChannelID == vs.ChannelID && vs.UserID != clientID {
-				return
+				isLeave = false
 			}
 		}
 	}
 
-	// ボイスチャンネルに誰もいなかったら Disconnect する
-	session.vcsession.Disconnect()
-	sessions.Delete(v.GuildID)
+	if isLeave {
+		// ボイスチャンネルに誰もいなかったら Disconnect する
+		session.vcsession.Disconnect()
+		sessions.Delete(v.GuildID)
+	} else {
+		// でなければ通知?
+		if !session.updateInfo {
+			return
+		}
+
+		isJoined := false
+		for _, userID := range session.beforeUsers {
+			if userID == v.UserID {
+				isJoined = true
+				break
+			}
+		}
+
+		user, err := discord.User(v.UserID)
+		if err != nil {
+			return
+		}
+		if isJoined {
+			session.Speech("BOT", fmt.Sprintf("%s left the voice", user.Username))
+			var nowUsers []string
+			for _, userID := range session.beforeUsers {
+				if userID == v.UserID {
+					continue
+				}
+				nowUsers = append(nowUsers, userID)
+			}
+			session.beforeUsers = nowUsers
+		} else {
+			session.Speech("BOT", fmt.Sprintf("%s join the voice", user.Username))
+			session.beforeUsers = append(session.beforeUsers, v.UserID)
+		}
+	}
 }
 
 // Get Session
@@ -581,7 +628,7 @@ func (s *Sessions) Delete(guildID string) {
 
 // Is Joined Session
 func (session *SessionData) IsJoined() bool {
-	return session.vcsession == nil
+	return session.vcsession != nil
 }
 
 // Speech in Session
