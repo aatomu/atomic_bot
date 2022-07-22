@@ -690,7 +690,7 @@ func (session *SessionData) Speech(userID string, text string) {
 
 // Command Failed Message
 func Failed(res slashlib.InteractionResponse, description string) {
-	res.Follow(&discordgo.WebhookParams{
+	_, err := res.Follow(&discordgo.WebhookParams{
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Title:       "Command Failed",
@@ -699,11 +699,12 @@ func Failed(res slashlib.InteractionResponse, description string) {
 			},
 		},
 	})
+	atomicgo.PrintError("Failed send response", err)
 }
 
 // Command Success Message
 func Success(res slashlib.InteractionResponse, description string) {
-	res.Follow(&discordgo.WebhookParams{
+	_, err := res.Follow(&discordgo.WebhookParams{
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Title:       "Command Success",
@@ -712,6 +713,7 @@ func Success(res slashlib.InteractionResponse, description string) {
 			},
 		},
 	})
+	atomicgo.PrintError("Failed send response", err)
 }
 
 func CheckDic(guildID string) (ok bool) {
