@@ -393,7 +393,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			}
 			session.mutedUsers = newMutedUsers
 		}
-		Success(res, fmt.Sprintf("%s のメッセージの読み上げを %t に変更しました", user.String(), toMute))
+		Success(res, fmt.Sprintf("%s のメッセージの読み上げを %t に変更しました", user.String(), !toMute))
 		return
 
 	case "update":
