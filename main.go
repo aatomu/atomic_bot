@@ -26,14 +26,13 @@ type Sessions struct {
 }
 
 type SessionData struct {
-	guildID     string
-	channelID   string
-	vcsession   *discordgo.VoiceConnection
-	lead        sync.Mutex
-	enableBot   bool
-	mutedUsers  []string
-	updateInfo  bool
-	beforeUsers []string
+	guildID    string
+	channelID  string
+	vcsession  *discordgo.VoiceConnection
+	lead       sync.Mutex
+	enableBot  bool
+	mutedUsers []string
+	updateInfo bool
 }
 
 type UserSetting struct {
@@ -150,12 +149,27 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// debug
 	if atomicgo.StringCheck(mData.Message, "^!debug") && mData.UserID == "701336137012215818" {
+		// セッション処理
 		if atomicgo.StringCheck(mData.Message, "[0-9]$") {
 			guildID := atomicgo.StringReplace(mData.Message, "", `^a debug\s*`)
 			log.Println("Deleting SessionItem : " + guildID)
 			sessions.Delete(guildID)
 			return
 		}
+
+		// ユーザー一覧
+		VCdata := map[string][]string{}
+		for _, guild := range discord.State.Guilds {
+			for _, vs := range guild.VoiceStates {
+				user, err := discord.User(vs.UserID)
+				if err != nil {
+					continue
+				}
+				VCdata[vs.GuildID] = append(VCdata[vs.GuildID], user.String())
+			}
+		}
+
+		// 表示
 		for _, session := range sessions.guilds {
 			guild, err := discord.Guild(session.guildID)
 			if atomicgo.PrintError("Failed Get GuildData by GuildID", err) {
@@ -170,10 +184,11 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			atomicgo.SendEmbed(discord, mData.ChannelID, &discordgo.MessageEmbed{
 				Type:        "rich",
 				Title:       fmt.Sprintf("Guild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
-				Description: fmt.Sprintf("Members:```\n%s```", session.beforeUsers),
+				Description: fmt.Sprintf("Members:```\n%s```", VCdata[guild.ID]),
 				Color:       0xff00ff,
 			})
 		}
+		return
 	}
 
 	//読み上げ
@@ -564,19 +579,10 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 		// 過去 !今
 		if isJoined && !isJoin {
 			session.Speech("BOT", fmt.Sprintf("%s left the voice", user.Username))
-			var nowUsers []string
-			for _, userID := range session.beforeUsers {
-				if userID == v.UserID {
-					continue
-				}
-				nowUsers = append(nowUsers, userID)
-			}
-			sessions.Get(v.GuildID).beforeUsers = nowUsers
 		}
 		// !過去 今
 		if !isJoined && isJoin {
 			session.Speech("BOT", fmt.Sprintf("%s join the voice", user.Username))
-			sessions.Get(v.GuildID).beforeUsers = append(session.beforeUsers, v.UserID)
 		}
 	}
 }
