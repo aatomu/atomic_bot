@@ -571,12 +571,12 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 				}
 				nowUsers = append(nowUsers, userID)
 			}
-			session.beforeUsers = nowUsers
+			sessions.Get(v.GuildID).beforeUsers = nowUsers
 		}
 		// !過去 今
 		if !isJoined && isJoin {
 			session.Speech("BOT", fmt.Sprintf("%s join the voice", user.Username))
-			session.beforeUsers = append(session.beforeUsers, v.UserID)
+			sessions.Get(v.GuildID).beforeUsers = append(session.beforeUsers, v.UserID)
 		}
 	}
 }
