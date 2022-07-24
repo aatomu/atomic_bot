@@ -531,13 +531,15 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 	if session == nil {
 		return
 	}
+	vcChannelID := session.vcsession.ChannelID
 
 	// ボイスチャンネルに誰かいるか
 	isLeave := true
 	for _, guild := range discord.State.Guilds {
 		for _, vs := range guild.VoiceStates {
-			if session.vcsession.ChannelID == vs.ChannelID && vs.UserID != clientID {
+			if vcChannelID == vs.ChannelID && vs.UserID != clientID {
 				isLeave = false
+				break
 			}
 		}
 	}
@@ -552,19 +554,15 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 			return
 		}
 
-		isJoined := false
-		for _, userID := range session.beforeUsers {
-			if userID == v.UserID {
-				isJoined = true
-				break
-			}
-		}
+		isJoined := v.BeforeUpdate != nil
+		isJoin := v.ChannelID != ""
 
 		user, err := discord.User(v.UserID)
 		if err != nil {
 			return
 		}
-		if isJoined {
+		// 過去 !今
+		if isJoined && !isJoin {
 			session.Speech("BOT", fmt.Sprintf("%s left the voice", user.Username))
 			var nowUsers []string
 			for _, userID := range session.beforeUsers {
@@ -574,7 +572,9 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 				nowUsers = append(nowUsers, userID)
 			}
 			session.beforeUsers = nowUsers
-		} else {
+		}
+		// !過去 今
+		if !isJoined && isJoin {
 			session.Speech("BOT", fmt.Sprintf("%s join the voice", user.Username))
 			session.beforeUsers = append(session.beforeUsers, v.UserID)
 		}
