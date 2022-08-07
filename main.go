@@ -312,6 +312,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			_, err := language.Parse(result.Lang)
 			if result.Lang != "auto" && err != nil {
 				Failed(res, "不明な言語です\n\"auto\"もしくは言語コードのみ使用可能です")
+				return
 			}
 		}
 
