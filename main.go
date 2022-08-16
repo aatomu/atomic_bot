@@ -643,7 +643,7 @@ func (session *SessionData) Speech(userID string, text string) {
 	}
 
 	//! ? { } < >を読み上げない
-	replace := regexp.MustCompile(`!|\?|{|}|<|>|`)
+	replace := regexp.MustCompile(`!|\?|{|}|<|>`)
 	text = replace.ReplaceAllString(text, "")
 
 	settingData, err := userConfig(userID, UserSetting{})
@@ -656,16 +656,16 @@ func (session *SessionData) Speech(userID string, text string) {
 		}
 	}
 
+	//隠れてるところを読み上げない
+	if strings.Contains(text, "||") {
+		replace := regexp.MustCompile(`(?s)\|\|.*\|\|`)
+		text = replace.ReplaceAllString(text, "ピーーーー")
+	}
+
 	//改行停止
 	if strings.Contains(text, "\n") {
 		replace := regexp.MustCompile(`\n.*`)
 		text = replace.ReplaceAllString(text, "")
-	}
-
-	//隠れてるところを読み上げない
-	if strings.Contains(text, "||") {
-		replace := regexp.MustCompile(`\|\|.*\|\|`)
-		text = replace.ReplaceAllString(text, "ピーーーー")
 	}
 
 	//text cut
