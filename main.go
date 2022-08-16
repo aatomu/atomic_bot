@@ -43,11 +43,10 @@ type UserSetting struct {
 
 var (
 	//変数定義
-	clientID   = ""
-	token      = flag.String("token", "", "bot token")
-	sessions   Sessions
-	botSession *discordgo.Session
-	dummy      = UserSetting{
+	clientID = ""
+	token    = flag.String("token", "", "bot token")
+	sessions Sessions
+	dummy    = UserSetting{
 		Lang:  "auto",
 		Speed: 1.5,
 		Pitch: 1.1,
@@ -90,22 +89,8 @@ func main() {
 
 //BOTの準備が終わったときにCall
 func onReady(discord *discordgo.Session, r *discordgo.Ready) {
-	botSession = discord
 	clientID = discord.State.User.ID
-	//1秒に1回呼び出す
-	oneSecTicker := time.NewTicker(1 * time.Second)
-	go func() {
-		for {
-			<-oneSecTicker.C
-			joinedGuilds := len(discord.State.Guilds)
-			joinedVC := len(sessions.guilds)
-			VC := ""
-			if joinedVC != 0 {
-				VC = fmt.Sprintf(" %d鯖でお話し中", joinedVC)
-			}
-			atomicgo.BotStateUpdate(botSession, fmt.Sprintf("/join | %d鯖で稼働中 %s", joinedGuilds, VC), 0)
-		}
-	}()
+
 	// コマンドの追加
 	new(slashlib.Command).
 		//TTS
@@ -142,7 +127,15 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 
 //メッセージが送られたときにCall
 func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
-	botSession = discord
+	// state update
+	joinedGuilds := len(discord.State.Guilds)
+	joinedVC := len(sessions.guilds)
+	VC := ""
+	if joinedVC != 0 {
+		VC = fmt.Sprintf(" %d鯖でお話し中", joinedVC)
+	}
+	atomicgo.BotStateUpdate(discord, fmt.Sprintf("/join | %d鯖で稼働中 %s", joinedGuilds, VC), 0)
+
 	mData := atomicgo.MessageViewAndEdit(discord, m)
 
 	// 読み上げ無し のチェック
