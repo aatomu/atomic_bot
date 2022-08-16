@@ -662,11 +662,11 @@ func (session *SessionData) Speech(userID string, text string) {
 		text = replace.ReplaceAllString(text, "ピーーーー")
 	}
 
-	//改行停止
-	if strings.Contains(text, "\n") {
-		replace := regexp.MustCompile(`\n.*`)
-		text = replace.ReplaceAllString(text, "")
-	}
+	// //改行停止
+	// if strings.Contains(text, "\n") {
+	// 	replace := regexp.MustCompile(`\n.*`)
+	// 	text = replace.ReplaceAllString(text, "")
+	// }
 
 	//text cut
 	read := atomicgo.StringCut(text, 100)
