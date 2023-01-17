@@ -250,13 +250,11 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			ticker := time.NewTicker(5 * time.Minute)
 			defer ticker.Stop()
 			for {
-				select {
-				case <-ticker.C:
-					var end chan bool
-					err = atomicgo.PlayAudioFile(1.00, 1.00, s.vcsession, "./Silent250milliSec.mp3", end) // ping websocket, use blank sound.
-					if err != nil {
-						return
-					}
+				<-ticker.C
+				var end chan bool
+				err = atomicgo.PlayAudioFile(1.00, 1.00, s.vcsession, "./Silent250milliSec.mp3", end) // ping websocket, use blank sound.
+				if err != nil {
+					return
 				}
 			}
 		}(session)
