@@ -247,15 +247,16 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		sessions.Add(session)
 
 		go func(s *SessionData) {
-			ticker := time.NewTicker(5 * time.Minute)
+			ticker := time.NewTicker(3 * time.Minute)
 			defer ticker.Stop()
 			for {
 				<-ticker.C
-				var end chan bool
-				err = atomicgo.PlayAudioFile(1.00, 1.00, s.vcsession, "./Silent250milliSec.mp3", end) // ping websocket, use blank sound.
-				if err != nil {
+				if s == nil {
 					return
 				}
+				var end chan bool
+				log.Println("Ping Send", session.guildID)
+				atomicgo.PlayAudioFile(1.00, 1.00, s.vcsession, "./Silent1Sec.mp3", end) // ping websocket, use blank sound.
 			}
 		}(session)
 
