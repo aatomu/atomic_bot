@@ -246,19 +246,20 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 
 		sessions.Add(session)
 
-		go func(s *SessionData) {
+		go func(s *SessionData, channelID string) {
 			ticker := time.NewTicker(3 * time.Minute)
 			defer ticker.Stop()
 			for {
 				<-ticker.C
 				if s == nil {
+					log.Println("Connection Close", channelID)
 					return
 				}
 				var end chan bool
-				log.Println("Ping Send", session.guildID)
-				atomicgo.PlayAudioFile(1.00, 1.00, s.vcsession, "./Silent1Sec.mp3", end) // ping websocket, use blank sound.
+				log.Println("Ping Send", channelID)
+				atomicgo.PlayAudioFile(1.00, 1.00, s.vcsession, "./Silent250milliSec.mp3", false, end) // ping websocket, use blank sound.
 			}
-		}(session)
+		}(session, i.ChannelName)
 
 		session.Speech("BOT", "おはー")
 		Success(res, "ハロー!")
@@ -691,7 +692,7 @@ func (session *SessionData) Speech(userID string, text string) {
 
 	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), settingData.Lang)
 	var end chan bool
-	err = atomicgo.PlayAudioFile(settingData.Speed, settingData.Pitch, session.vcsession, voiceURL, end)
+	err = atomicgo.PlayAudioFile(settingData.Speed, settingData.Pitch, session.vcsession, voiceURL, false, end)
 	atomicgo.PrintError("Failed play Audio \""+read+"\" ", err)
 }
 
