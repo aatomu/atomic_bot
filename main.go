@@ -257,7 +257,8 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 				}
 				var end chan bool
 				log.Println("Ping Send", channelID)
-				atomicgo.PlayAudioFile(1.00, 1.00, s.vcsession, "./Silent250milliSec.mp3", false, end) // ping websocket, use blank sound.
+				err := atomicgo.PlayAudioFile(1.00, 1.00, s.vcsession, "./Silent1Sec.mp3", false, end) // ping websocket, use blank sound.
+				log.Println("Ping Sended", channelID, "Err:", err)
 			}
 		}(session, i.ChannelName)
 
