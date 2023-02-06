@@ -136,7 +136,8 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	atomicgo.BotStateUpdate(discord, fmt.Sprintf("/join | %d鯖で稼働中 %s", joinedGuilds, VC), 0)
 
-	mData := atomicgo.MessageViewAndEdit(discord, m)
+	mData := atomicgo.MessageParse(discord, m)
+	log.Println(mData.FormatText)
 
 	// 読み上げ無し のチェック
 	if strings.HasPrefix(m.Content, ";") {
@@ -246,24 +247,26 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 
 		sessions.Add(session)
 
-		go func(s *SessionData, channelID string) {
+		session.Speech("BOT", "おはー")
+		Success(res, "ハロー!")
+
+		go func(s *SessionData, channelName string) {
 			ticker := time.NewTicker(3 * time.Minute)
 			defer ticker.Stop()
 			for {
 				<-ticker.C
-				if s == nil {
-					log.Println("Connection Close", channelID)
-					return
+				if ok := sessions.Get(s.guildID); ok != nil {
+					log.Println("Connection Close", channelName)
+					break
 				}
 				var end chan bool
-				log.Println("Ping Send", channelID)
+				log.Println("Ping Send", channelName)
 				err := atomicgo.PlayAudioFile(1.00, 1.00, s.vcsession, "./Silent1Sec.mp3", false, end) // ping websocket, use blank sound.
-				log.Println("Ping Sended", channelID, "Err:", err)
+				log.Println("Ping Sended", channelName, "Err:", err)
 			}
+			log.Println("Auto Ping Return", channelName)
 		}(session, i.ChannelName)
 
-		session.Speech("BOT", "おはー")
-		Success(res, "ハロー!")
 		return
 
 	case "leave":
@@ -553,7 +556,8 @@ func userConfig(userID string, user UserSetting) (result UserSetting, err error)
 
 //VCでJoin||Leaveが起きたときにCall
 func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
-
+	vData := atomicgo.VoiceStateParse(discord, v)
+	log.Println(vData.FormatText)
 	//セッションがあるか確認
 	session := sessions.Get(v.GuildID)
 	if session == nil {
@@ -581,21 +585,10 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 		if !session.updateInfo {
 			return
 		}
-
-		isJoined := v.BeforeUpdate != nil
-		isJoin := v.ChannelID != ""
-
-		user, err := discord.User(v.UserID)
-		if err != nil {
-			return
-		}
-		// 過去 !今
-		if isJoined && !isJoin {
-			session.Speech("BOT", fmt.Sprintf("%s left the voice", user.Username))
-		}
-		// !過去 今
-		if !isJoined && isJoin {
-			session.Speech("BOT", fmt.Sprintf("%s join the voice", user.Username))
+		if vData.IsJoin {
+			session.Speech("BOT", fmt.Sprintf("%s join the voice", vData.UserData.Username))
+		} else { // 今 VCchannelIDがない
+			session.Speech("BOT", fmt.Sprintf("%s left the voice", vData.UserData.Username))
 		}
 	}
 }
