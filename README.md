@@ -93,4 +93,3 @@ slash化しました
 Bot Souce Code : https://github.com/takanakahiko/discord-tts  
 Bot API Code   : https://github.com/bwmarrin/discordgo  
 Bot Language   : https://golang.org/  
-SilentFile     : https://github.com/anars/blank-audio  

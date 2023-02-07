@@ -261,9 +261,10 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 					break
 				}
 				var end chan bool
-				log.Println("Ping Send", channelName)
-				err := atomicgo.PlayAudioFile(1.00, 1.00, session.vcsession, "./Silent1Sec.mp3", false, end) // ping websocket, use blank sound.
-				log.Println("Ping Sended", channelName, "Err:", err)
+				err := atomicgo.PlayAudioFile(10.00, 1.00, session.vcsession, "http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%20&tl=ja", false, end)
+				if err != nil {
+					log.Println("Ping Send Failed", channelName, "Err:", err)
+				}
 			}
 			log.Println("Auto Ping Return", channelName)
 		}(i.GuildID, i.ChannelName)
