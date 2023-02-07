@@ -250,22 +250,23 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		session.Speech("BOT", "おはー")
 		Success(res, "ハロー!")
 
-		go func(s *SessionData, channelName string) {
+		go func(guildID string, channelName string) {
 			ticker := time.NewTicker(3 * time.Minute)
 			defer ticker.Stop()
 			for {
 				<-ticker.C
-				if ok := sessions.Get(s.guildID); ok != nil {
+				session := sessions.Get(guildID)
+				if session == nil {
 					log.Println("Connection Close", channelName)
 					break
 				}
 				var end chan bool
 				log.Println("Ping Send", channelName)
-				err := atomicgo.PlayAudioFile(1.00, 1.00, s.vcsession, "./Silent1Sec.mp3", false, end) // ping websocket, use blank sound.
+				err := atomicgo.PlayAudioFile(1.00, 1.00, session.vcsession, "./Silent1Sec.mp3", false, end) // ping websocket, use blank sound.
 				log.Println("Ping Sended", channelName, "Err:", err)
 			}
 			log.Println("Auto Ping Return", channelName)
-		}(session, i.ChannelName)
+		}(i.GuildID, i.ChannelName)
 
 		return
 
