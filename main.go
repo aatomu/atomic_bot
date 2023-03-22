@@ -87,7 +87,7 @@ func main() {
 	atomicgo.StopWait()
 }
 
-//BOTの準備が終わったときにCall
+// BOTの準備が終わったときにCall
 func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 	clientID = discord.State.User.ID
 
@@ -125,7 +125,7 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 		CommandCreate(discord, "")
 }
 
-//メッセージが送られたときにCall
+// メッセージが送られたときにCall
 func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	// state update
 	joinedGuilds := len(discord.State.Guilds)
@@ -556,7 +556,7 @@ func userConfig(userID string, user UserSetting) (result UserSetting, err error)
 	return
 }
 
-//VCでJoin||Leaveが起きたときにCall
+// VCでJoin||Leaveが起きたときにCall
 func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 	vData := atomicgo.VoiceStateParse(discord, v)
 	log.Println(vData.FormatText)
