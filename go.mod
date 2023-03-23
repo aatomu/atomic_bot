@@ -3,7 +3,7 @@ module github.com/atomu21263/atomic_bot
 go 1.17
 
 require (
-	github.com/atomu21263/atomicgo v0.0.0-20230323091454-9832da9222a3
+	github.com/atomu21263/atomicgo v0.0.0-20230323093053-67d93f15acf8
 	github.com/atomu21263/slashlib v0.0.0-20230206145037-650312eccb48
 	github.com/bwmarrin/discordgo v0.27.1
 	golang.org/x/text v0.8.0
