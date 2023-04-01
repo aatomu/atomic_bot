@@ -559,7 +559,11 @@ func userConfig(userID string, user UserSetting) (result UserSetting, err error)
 // VCでJoin||Leaveが起きたときにCall
 func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 	vData := atomicgo.VoiceStateParse(discord, v)
+	if !vData.StatusUpdate.ChannelJoin {
+		return
+	}
 	log.Println(vData.FormatText)
+
 	//セッションがあるか確認
 	session := sessions.Get(v.GuildID)
 	if session == nil {
@@ -587,7 +591,7 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 		if !session.updateInfo {
 			return
 		}
-		if vData.IsJoin {
+		if vData.Status.ChannelJoin {
 			session.Speech("BOT", fmt.Sprintf("%s join the voice", vData.UserData.Username))
 		} else { // 今 VCchannelIDがない
 			session.Speech("BOT", fmt.Sprintf("%s left the voice", vData.UserData.Username))

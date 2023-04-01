@@ -2,10 +2,10 @@ github.com/ChimeraCoder/anaconda v2.0.0+incompatible h1:F0eD7CHXieZ+VLboCD5UAqCe
 github.com/ChimeraCoder/anaconda v2.0.0+incompatible/go.mod h1:TCt3MijIq3Qqo9SBtuW/rrM4x7rDfWqYWHj8T7hLcLg=
 github.com/ChimeraCoder/tokenbucket v0.0.0-20131201223612-c5a927568de7 h1:r+EmXjfPosKO4wfiMLe1XQictsIlhErTufbWUsjOTZs=
 github.com/ChimeraCoder/tokenbucket v0.0.0-20131201223612-c5a927568de7/go.mod h1:b2EuEMLSG9q3bZ95ql1+8oVqzzrTNSiOQqSXWFBzxeI=
-github.com/atomu21263/atomicgo v0.0.0-20230323091454-9832da9222a3 h1:G/xT0TE4mGVXyxsOc5Oz4I0GAg3QkGEOri9BETVjE8c=
-github.com/atomu21263/atomicgo v0.0.0-20230323091454-9832da9222a3/go.mod h1:CbpAbdhTNlICZ0tKx+hZXmhrZTOmxpwMfNoqCZrZ4Kw=
 github.com/atomu21263/atomicgo v0.0.0-20230323093053-67d93f15acf8 h1:uU1SY4XH2uNsa7kUZz1+2okIQdYnHCpRXCXTZjjIXKY=
 github.com/atomu21263/atomicgo v0.0.0-20230323093053-67d93f15acf8/go.mod h1:gb0QRI1jEEqEv8LRa28m0zLG+xcytNdn069irNca17w=
+github.com/atomu21263/atomicgo v0.0.0-20230401102523-666d2ab52dae h1:8o8FDKtJ7WRarXRsxM9xhGtGUdFbuzsILAp/jcIPqGc=
+github.com/atomu21263/atomicgo v0.0.0-20230401102523-666d2ab52dae/go.mod h1:gb0QRI1jEEqEv8LRa28m0zLG+xcytNdn069irNca17w=
 github.com/atomu21263/slashlib v0.0.0-20230206145037-650312eccb48 h1:r2El63DvkjmALwqS8cfEcW2uF/EPM3nT+DYWFJhdNzg=
 github.com/atomu21263/slashlib v0.0.0-20230206145037-650312eccb48/go.mod h1:F94BkYv/2Dmpnx+pGDihR5x3zxu1Z59coei1xRlv5zI=
 github.com/azr/backoff v0.0.0-20160115115103-53511d3c7330 h1:ekDALXAVvY/Ub1UtNta3inKQwZ/jMB/zpOtD8rAYh78=
