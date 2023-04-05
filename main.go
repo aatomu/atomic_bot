@@ -15,6 +15,8 @@ import (
 	"sync"
 
 	"github.com/atomu21263/atomicgo"
+	"github.com/atomu21263/atomicgo/discordbot"
+	"github.com/atomu21263/atomicgo/files"
 	"github.com/atomu21263/slashlib"
 	"github.com/bwmarrin/discordgo"
 	"golang.org/x/text/language"
@@ -59,7 +61,11 @@ func main() {
 	fmt.Println("token        :", *token)
 
 	//bot起動準備
-	discord := atomicgo.DiscordBotSetup(*token)
+	discord, err := discordbot.Init(*token)
+	if err != nil {
+		fmt.Println("Failed Bot Init", err)
+		return
+	}
 
 	//eventトリガー設定
 	discord.AddHandler(onReady)
@@ -68,23 +74,23 @@ func main() {
 	discord.AddHandler(onVoiceStateUpdate)
 
 	//起動
-	atomicgo.DiscordBotStart(discord)
+	discordbot.Start(discord)
 	defer func() {
 		for _, session := range sessions.guilds {
-			atomicgo.SendEmbed(discord, session.channelID, &discordgo.MessageEmbed{
+			discord.ChannelMessageSendEmbed(session.channelID, &discordgo.MessageEmbed{
 				Type:        "rich",
 				Title:       "__Infomation__",
 				Description: "Sorry. Bot will Shutdown. Will be try later.",
 				Color:       0x00008f,
 			})
 		}
-		atomicgo.DiscordBotEnd(discord)
+		discord.Close()
 	}()
 	//起動メッセージ表示
 	fmt.Println("Listening...")
 
 	//bot停止対策
-	atomicgo.StopWait()
+	<-atomicgo.BreakSignal()
 }
 
 // BOTの準備が終わったときにCall
@@ -134,9 +140,9 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	if joinedVC != 0 {
 		VC = fmt.Sprintf(" %d鯖でお話し中", joinedVC)
 	}
-	atomicgo.BotStateUpdate(discord, fmt.Sprintf("/join | %d鯖で稼働中 %s", joinedGuilds, VC), 0)
+	discordbot.BotStateUpdate(discord, fmt.Sprintf("/join | %d鯖で稼働中 %s", joinedGuilds, VC), 0)
 
-	mData := atomicgo.MessageParse(discord, m)
+	mData := discordbot.MessageParse(discord, m)
 	log.Println(mData.FormatText)
 
 	// 読み上げ無し のチェック
@@ -145,10 +151,10 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	// debug
-	if atomicgo.StringCheck(mData.Message, "^!debug") && mData.UserID == "701336137012215818" {
+	if atomicgo.RegMatch(mData.Message, "^!debug") && mData.UserID == "701336137012215818" {
 		// セッション処理
-		if atomicgo.StringCheck(mData.Message, "[0-9]$") {
-			guildID := atomicgo.StringReplace(mData.Message, "", `^a debug\s*`)
+		if atomicgo.RegMatch(mData.Message, "[0-9]$") {
+			guildID := atomicgo.RegReplace(mData.Message, "", `^a debug\s*`)
 			log.Println("Deleting SessionItem : " + guildID)
 			sessions.Delete(guildID)
 			return
@@ -178,7 +184,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 				continue
 			}
 
-			atomicgo.SendEmbed(discord, mData.ChannelID, &discordgo.MessageEmbed{
+			discord.ChannelMessageSendEmbed(mData.ChannelID, &discordgo.MessageEmbed{
 				Type:        "rich",
 				Title:       fmt.Sprintf("Guild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
 				Description: fmt.Sprintf("Members:```\n%s```", VCdata[guild.ID]),
@@ -232,7 +238,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		vcSession, err := atomicgo.JoinUserVCchannel(discord, i.UserID, false, true)
+		vcSession, err := discordbot.JoinUserVCchannel(discord, i.UserID, false, true)
 		if atomicgo.PrintError("Failed Join VoiceChat", err) {
 			Failed(res, "ユーザーが VoiceChatに接続していない\nもしくは権限が不足しています")
 			return
@@ -261,7 +267,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 					break
 				}
 				var end chan bool
-				err := atomicgo.PlayAudioFile(10.00, 1.00, session.vcsession, "http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%20&tl=ja", false, end)
+				err := discordbot.PlayAudioFile(10.00, 1.00, session.vcsession, "http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%20&tl=ja", false, end)
 				if err != nil {
 					log.Println("Ping Send Failed", channelName, "Err:", err)
 				}
@@ -351,7 +357,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		textByte, _ := atomicgo.ReadFile(fileName)
+		textByte, _ := os.ReadFile(fileName)
 		dic := string(textByte)
 
 		//textをfrom toに
@@ -366,13 +372,13 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 
 		//確認
 		if strings.Contains(dic, from+",") {
-			dic = atomicgo.StringReplace(dic, "", "\n"+from+",.*")
+			dic = atomicgo.RegReplace(dic, "", "\n"+from+",.*")
 		}
 		dic = dic + from + "," + to + "\n"
 
 		//書き込み
-		ok := atomicgo.WriteFileFlash(fileName, []byte(dic), 0777)
-		if !ok {
+		err := files.WriteFileFlash(fileName, []byte(dic))
+		if !atomicgo.PrintError("Config Update Failed", err) {
 			Failed(res, "辞書の書き込みに失敗しました")
 			return
 		}
@@ -497,14 +503,14 @@ func userConfig(userID string, user UserSetting) (result UserSetting, err error)
 	//ファイルパスの指定
 	fileName := "./user_config.json"
 
-	if !atomicgo.CheckFile(fileName) {
-		if !atomicgo.CreateFile(fileName) {
+	if !files.IsAccess(fileName) {
+		if files.Create(fileName, false) != nil {
 			return dummy, fmt.Errorf("failed Create Config File")
 		}
 	}
 
-	bytes, ok := atomicgo.ReadFile(fileName)
-	if !ok {
+	bytes, err := os.ReadFile(fileName)
+	if err != nil {
 		return dummy, fmt.Errorf("failed Read Config File")
 	}
 
@@ -550,7 +556,7 @@ func userConfig(userID string, user UserSetting) (result UserSetting, err error)
 			return dummy, fmt.Errorf("failed Marshal UserConfig")
 		}
 		//書き込み
-		atomicgo.WriteFileFlash(fileName, bytes, 0755)
+		files.WriteFileFlash(fileName, bytes)
 		log.Println("User userConfig Writed")
 	}
 	return
@@ -558,7 +564,7 @@ func userConfig(userID string, user UserSetting) (result UserSetting, err error)
 
 // VCでJoin||Leaveが起きたときにCall
 func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
-	vData := atomicgo.VoiceStateParse(discord, v)
+	vData := discordbot.VoiceStateParse(discord, v)
 	if !vData.StatusUpdate.ChannelJoin {
 		return
 	}
@@ -684,7 +690,7 @@ func (session *SessionData) Speech(userID string, text string) {
 	// }
 
 	//text cut
-	read := atomicgo.StringCut(text, 100)
+	read := atomicgo.StrCut(text, "", 100)
 
 	//読み上げ待機
 	session.lead.Lock()
@@ -692,7 +698,7 @@ func (session *SessionData) Speech(userID string, text string) {
 
 	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), settingData.Lang)
 	var end chan bool
-	err = atomicgo.PlayAudioFile(settingData.Speed, settingData.Pitch, session.vcsession, voiceURL, false, end)
+	err = discordbot.PlayAudioFile(settingData.Speed, settingData.Pitch, session.vcsession, voiceURL, false, end)
 	atomicgo.PrintError("Failed play Audio \""+read+"\" ", err)
 }
 
@@ -726,24 +732,20 @@ func Success(res slashlib.InteractionResponse, description string) {
 
 func CheckDic(guildID string) (ok bool) {
 	// dic.txtがあるか
-	if atomicgo.CheckFile("./dic/" + guildID + ".txt") {
+	if files.IsAccess("./dic/" + guildID + ".txt") {
 		return true
 	}
 
 	//フォルダがあるか確認
-	if !atomicgo.CheckFile("./dic") {
+	if !files.IsAccess("./dic") {
 		//フォルダがなかったら作成
-		success := atomicgo.CreateDir("./dic", 0755)
-		if !success {
+		err := files.Create("./dic", true)
+		if atomicgo.PrintError("Failed Create Dic", err) {
 			return false
 		}
 	}
 
 	//ファイル作成
-	success := atomicgo.WriteFileFlash("./dic/"+guildID+".txt", []byte{}, 0777)
-	if !success {
-		atomicgo.PrintError("Failed create dictionary", fmt.Errorf("permission denied?"))
-		return false
-	}
-	return true
+	err := files.WriteFileFlash("./dic/"+guildID+".txt", []byte{})
+	return !atomicgo.PrintError("Failed create dictionary", err)
 }
