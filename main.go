@@ -184,12 +184,18 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 				continue
 			}
 
-			discord.ChannelMessageSendEmbed(mData.ChannelID, &discordgo.MessageEmbed{
+			embed, err := discord.ChannelMessageSendEmbed(mData.ChannelID, &discordgo.MessageEmbed{
 				Type:        "rich",
 				Title:       fmt.Sprintf("Guild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
 				Description: fmt.Sprintf("Members:```\n%s```", VCdata[guild.ID]),
 				Color:       0xff00ff,
 			})
+			if err != nil {
+				go func() {
+					time.Sleep(1 * time.Minute)
+					discord.ChannelMessageDelete(mData.ChannelID, embed.ID)
+				}()
+			}
 		}
 		return
 	}
