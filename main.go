@@ -213,6 +213,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 		}
 		if session.IsJoined() && !isMuted && session.channelID == mData.ChannelID && !(m.Author.Bot && !session.enableBot) {
+			session.vcsession = discord.VoiceConnections[m.GuildID]
 			session.Speech(mData.UserID, mData.Message)
 			return
 		}
@@ -264,25 +265,6 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 
 		session.Speech("BOT", "おはー")
 		Success(res, "ハロー!")
-
-		go func(guildID string, channelName string) {
-			ticker := time.NewTicker(3 * time.Minute)
-			defer ticker.Stop()
-			for {
-				<-ticker.C
-				session := sessions.Get(guildID)
-				if session == nil {
-					log.Println("Connection Close", channelName)
-					break
-				}
-				var end chan bool
-				err := discordbot.PlayAudioFile(10.00, 1.00, session.vcsession, "http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%20&tl=ja", false, end)
-				if err != nil {
-					log.Println("Ping Send Failed", channelName, "Err:", err)
-				}
-			}
-			log.Println("Auto Ping Return", channelName)
-		}(i.GuildID, i.ChannelName)
 
 		return
 
