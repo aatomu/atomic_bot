@@ -53,6 +53,8 @@ var (
 		Speed: 1.5,
 		Pitch: 1.1,
 	}
+	embedSuccessColor = 0x1E90FF
+	embedFailedColor  = 0x00008f
 )
 
 func main() {
@@ -81,7 +83,7 @@ func main() {
 				Type:        "rich",
 				Title:       "__Infomation__",
 				Description: "Sorry. Bot will Shutdown. Will be try later.",
-				Color:       0x00008f,
+				Color:       embedFailedColor,
 			})
 		}
 		discord.Close()
@@ -188,12 +190,13 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 				Type:        "rich",
 				Title:       fmt.Sprintf("Guild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
 				Description: fmt.Sprintf("Members:```\n%s```", VCdata[guild.ID]),
-				Color:       0xff00ff,
+				Color:       embedFailedColor,
 			})
-			if err != nil {
+			if err == nil {
 				go func() {
-					time.Sleep(1 * time.Minute)
-					discord.ChannelMessageDelete(mData.ChannelID, embed.ID)
+					time.Sleep(30 * time.Second)
+					err := discord.ChannelMessageDelete(mData.ChannelID, embed.ID)
+					atomicgo.PrintError("failed delete debug message", err)
 				}()
 			}
 		}
@@ -481,7 +484,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			Embeds: []*discordgo.MessageEmbed{
 				{
 					Title:       title,
-					Color:       0x1E90FF,
+					Color:       embedSuccessColor,
 					Description: description,
 				},
 			},
@@ -714,7 +717,7 @@ func Failed(res slashlib.InteractionResponse, description string) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Title:       "Command Failed",
-				Color:       0xDC143C,
+				Color:       embedFailedColor,
 				Description: description,
 			},
 		},
@@ -728,7 +731,7 @@ func Success(res slashlib.InteractionResponse, description string) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Title:       "Command Success",
-				Color:       0x1E90FF,
+				Color:       embedSuccessColor,
 				Description: description,
 			},
 		},
