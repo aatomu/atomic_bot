@@ -213,7 +213,6 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 		}
 		if session.IsJoined() && !isMuted && session.channelID == mData.ChannelID && !(m.Author.Bot && !session.enableBot) {
-			session.vcsession = discord.VoiceConnections[m.GuildID]
 			session.Speech(mData.UserID, mData.Message)
 			return
 		}
@@ -262,6 +261,16 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		}
 
 		sessions.Add(session)
+		go func() {
+			ticker := time.NewTicker(3 * time.Minute)
+			for {
+				<-ticker.C
+				if sessions.Get(i.GuildID) == nil {
+					break
+				}
+				session.vcsession = discord.VoiceConnections[i.GuildID]
+			}
+		}()
 
 		session.Speech("BOT", "おはー")
 		Success(res, "ハロー!")
