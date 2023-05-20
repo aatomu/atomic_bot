@@ -14,9 +14,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/atomu21263/atomicgo"
 	"github.com/atomu21263/atomicgo/discordbot"
 	"github.com/atomu21263/atomicgo/files"
+	"github.com/atomu21263/atomicgo/utils"
 	"github.com/atomu21263/slashlib"
 	"github.com/bwmarrin/discordgo"
 	"golang.org/x/text/language"
@@ -93,7 +93,7 @@ func main() {
 	fmt.Println("Listening...")
 
 	//bot停止対策
-	<-atomicgo.BreakSignal()
+	<-utils.BreakSignal()
 }
 
 // BOTの準備が終わったときにCall
@@ -101,36 +101,123 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 	clientID = discord.State.User.ID
 
 	// コマンドの追加
+	var minSpeed float64 = 0.5
+	var minPitch float64 = 0.5
 	new(slashlib.Command).
 		//TTS
-		AddCommand("join", "VoiceChatに接続します").
-		AddCommand("leave", "VoiceChatから切断します").
-		AddCommand("get", "読み上げ設定を表示します").
-		AddCommand("set", "読み上げ設定を変更します").
-		AddOption(slashlib.TypeFloat, "speed", "読み上げ速度を設定", false, 0.5, 5).
-		AddOption(slashlib.TypeFloat, "pitch", "声の高さを設定", false, 0.5, 1.5).
-		AddOption(slashlib.TypeString, "lang", "読み上げ言語を設定", false, 0, 0).
-		AddCommand("dic", "辞書を設定します").
-		AddOption(slashlib.TypeString, "from", "置換元", true, 0, 0).
-		AddOption(slashlib.TypeString, "to", "置換先", true, 0, 0).
-		AddCommand("read", "Botメッセージを読み上げるか変更します").
-		AddCommand("mute", "指定されたユーザーメッセージの読み上げを変更します").
-		AddOption(slashlib.TypeUser, "user", "読み上げするかを変更するユーザー", true, 0, 0).
-		AddCommand("update", "参加,退出を通知します").
+		AddCommand("join", "VoiceChatに接続します", 0).
+		AddCommand("leave", "VoiceChatから切断します", 0).
+		AddCommand("get", "読み上げ設定を表示します", 0).
+		AddCommand("set", "読み上げ設定を変更します", 0).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionNumber,
+			Name:        "speed",
+			Description: "読み上げ速度を設定",
+			MinValue:    &minSpeed,
+			MaxValue:    5,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionNumber,
+			Name:        "pitch",
+			Description: "声の高さを設定",
+			MinValue:    &minPitch,
+			MaxValue:    1.5,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "lang",
+			Description: "読み上げ言語を設定",
+		}).
+		AddCommand("dic", "辞書を設定します", 0).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "from",
+			Description: "置換元",
+			Required:    true,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "to",
+			Description: "置換先",
+			Required:    true,
+		}).
+		AddCommand("read", "Botメッセージを読み上げるか変更します", 0).
+		AddCommand("mute", "指定されたユーザーメッセージの読み上げを変更します", 0).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionUser,
+			Name:        "user",
+			Description: "読み上げするかを変更するユーザー",
+			Required:    true,
+		}).
+		AddCommand("update", "参加,退出を通知します", 0).
 		//その他
-		AddCommand("poll", "投票を作成します").
-		AddOption(slashlib.TypeString, "title", "投票のタイトル", true, 0, 0).
-		AddOption(slashlib.TypeString, "choice_1", "選択肢 1", true, 0, 0).
-		AddOption(slashlib.TypeString, "choice_2", "選択肢 2", true, 0, 0).
-		AddOption(slashlib.TypeString, "choice_3", "選択肢 3", false, 0, 0).
-		AddOption(slashlib.TypeString, "choice_4", "選択肢 4", false, 0, 0).
-		AddOption(slashlib.TypeString, "choice_5", "選択肢 5", false, 0, 0).
-		AddOption(slashlib.TypeString, "choice_6", "選択肢 6", false, 0, 0).
-		AddOption(slashlib.TypeString, "choice_7", "選択肢 7", false, 0, 0).
-		AddOption(slashlib.TypeString, "choice_8", "選択肢 8", false, 0, 0).
-		AddOption(slashlib.TypeString, "choice_9", "選択肢 9", false, 0, 0).
-		AddOption(slashlib.TypeString, "choice_10", "選択肢 10", false, 0, 0).
-		//AddCommand("role", "ロール管理メニューを生成します").
+		AddCommand("poll", "投票を作成します", 0).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "title",
+			Description: "投票のタイトル",
+			Required:    true,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "choice_1",
+			Description: "選択肢 1",
+			Required:    true,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "choice_2",
+			Description: "選択肢 2",
+			Required:    true,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "choice_3",
+			Description: "選択肢 3",
+			Required:    false,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "choice_4",
+			Description: "選択肢 4",
+			Required:    false,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "choice_5",
+			Description: "選択肢 5",
+			Required:    false,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "choice_6",
+			Description: "選択肢 6",
+			Required:    false,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "choice_7",
+			Description: "選択肢 7",
+			Required:    false,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "choice_8",
+			Description: "選択肢 8",
+			Required:    false,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "choice_9",
+			Description: "選択肢 9",
+			Required:    false,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "choice_10",
+			Description: "選択肢 10",
+			Required:    false,
+		}).
 		CommandCreate(discord, "")
 }
 
@@ -156,10 +243,10 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	// debug
-	if atomicgo.RegMatch(mData.Message, "^!debug") && mData.UserID == "701336137012215818" {
+	if utils.RegMatch(mData.Message, "^!debug") && mData.UserID == "701336137012215818" {
 		// セッション処理
-		if atomicgo.RegMatch(mData.Message, "[0-9]$") {
-			guildID := atomicgo.RegReplace(mData.Message, "", `^a debug\s*`)
+		if utils.RegMatch(mData.Message, "[0-9]$") {
+			guildID := utils.RegReplace(mData.Message, "", `^a debug\s*`)
 			log.Println("Deleting SessionItem : " + guildID)
 			sessions.Delete(guildID)
 			return
@@ -180,12 +267,12 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		// 表示
 		for _, session := range sessions.guilds {
 			guild, err := discord.Guild(session.guildID)
-			if atomicgo.PrintError("Failed Get GuildData by GuildID", err) {
+			if utils.PrintError("Failed Get GuildData by GuildID", err) {
 				continue
 			}
 
 			channel, err := discord.Channel(session.channelID)
-			if atomicgo.PrintError("Failed Get ChannelData by ChannelID", err) {
+			if utils.PrintError("Failed Get ChannelData by ChannelID", err) {
 				continue
 			}
 
@@ -199,7 +286,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 				go func() {
 					time.Sleep(30 * time.Second)
 					err := discord.ChannelMessageDelete(mData.ChannelID, embed.ID)
-					atomicgo.PrintError("failed delete debug message", err)
+					utils.PrintError("failed delete debug message", err)
 				}()
 			}
 		}
@@ -251,7 +338,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		}
 
 		vcSession, err := discordbot.JoinUserVCchannel(discord, i.UserID, false, true)
-		if atomicgo.PrintError("Failed Join VoiceChat", err) {
+		if utils.PrintError("Failed Join VoiceChat", err) {
 			Failed(res, "ユーザーが VoiceChatに接続していない\nもしくは権限が不足しています")
 			return
 		}
@@ -301,7 +388,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		res.Thinking(false)
 
 		result, err := userConfig(i.UserID, UserSetting{})
-		if atomicgo.PrintError("Failed Get Config", err) {
+		if utils.PrintError("Failed Get Config", err) {
 			Failed(res, "データのアクセスに失敗しました。")
 			return
 		}
@@ -321,7 +408,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 
 		// 保存
 		result, err := userConfig(i.UserID, UserSetting{})
-		if atomicgo.PrintError("Failed Get Config", err) {
+		if utils.PrintError("Failed Get Config", err) {
 			Failed(res, "読み上げ設定を読み込めませんでした")
 			return
 		}
@@ -344,7 +431,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		}
 
 		_, err = userConfig(i.UserID, result)
-		if atomicgo.PrintError("Failed Write Config", err) {
+		if utils.PrintError("Failed Write Config", err) {
 			Failed(res, "保存に失敗しました")
 		}
 		Success(res, "読み上げ設定を変更しました")
@@ -376,13 +463,13 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 
 		//確認
 		if strings.Contains(dic, from+",") {
-			dic = atomicgo.RegReplace(dic, "", "\n"+from+",.*")
+			dic = utils.RegReplace(dic, "", "\n"+from+",.*")
 		}
 		dic = dic + from + "," + to + "\n"
 
 		//書き込み
 		err := files.WriteFileFlash(fileName, []byte(dic))
-		if !atomicgo.PrintError("Config Update Failed", err) {
+		if !utils.PrintError("Config Update Failed", err) {
 			Failed(res, "辞書の書き込みに失敗しました")
 			return
 		}
@@ -484,7 +571,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 				},
 			},
 		})
-		if atomicgo.PrintError("Failed Follow", err) {
+		if utils.PrintError("Failed Follow", err) {
 			return
 		}
 		time.Sleep(1 * time.Second)
@@ -521,7 +608,7 @@ func userConfig(userID string, user UserSetting) (result UserSetting, err error)
 	Users := map[string]UserSetting{}
 	if string(bytes) != "" {
 		err = json.Unmarshal(bytes, &Users)
-		atomicgo.PrintError("failed UnMarshal UserConfig", err)
+		utils.PrintError("failed UnMarshal UserConfig", err)
 	}
 
 	// チェック用
@@ -672,7 +759,7 @@ func (session *SessionData) Speech(userID string, text string) {
 	text = replace.ReplaceAllString(text, "")
 
 	settingData, err := userConfig(userID, UserSetting{})
-	atomicgo.PrintError("Failed func userConfig()", err)
+	utils.PrintError("Failed func userConfig()", err)
 
 	if settingData.Lang == "auto" {
 		settingData.Lang = "ja"
@@ -694,7 +781,7 @@ func (session *SessionData) Speech(userID string, text string) {
 	}
 
 	//text cut
-	read := atomicgo.StrCut(text, "", 100)
+	read := utils.StrCut(text, "", 100)
 
 	//読み上げ待機
 	session.lead.Lock()
@@ -703,7 +790,7 @@ func (session *SessionData) Speech(userID string, text string) {
 	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), settingData.Lang)
 	var end chan bool
 	err = discordbot.PlayAudioFile(settingData.Speed, settingData.Pitch, session.vcsession, voiceURL, false, end)
-	atomicgo.PrintError("Failed play Audio \""+read+"\" ", err)
+	utils.PrintError("Failed play Audio \""+read+"\" ", err)
 }
 
 // Command Failed Message
@@ -717,7 +804,7 @@ func Failed(res slashlib.InteractionResponse, description string) {
 			},
 		},
 	})
-	atomicgo.PrintError("Failed send response", err)
+	utils.PrintError("Failed send response", err)
 }
 
 // Command Success Message
@@ -731,7 +818,7 @@ func Success(res slashlib.InteractionResponse, description string) {
 			},
 		},
 	})
-	atomicgo.PrintError("Failed send response", err)
+	utils.PrintError("Failed send response", err)
 }
 
 func CheckDic(guildID string) (ok bool) {
@@ -744,12 +831,12 @@ func CheckDic(guildID string) (ok bool) {
 	if !files.IsAccess("./dic") {
 		//フォルダがなかったら作成
 		err := files.Create("./dic", true)
-		if atomicgo.PrintError("Failed Create Dic", err) {
+		if utils.PrintError("Failed Create Dic", err) {
 			return false
 		}
 	}
 
 	//ファイル作成
 	err := files.WriteFileFlash("./dic/"+guildID+".txt", []byte{})
-	return !atomicgo.PrintError("Failed create dictionary", err)
+	return !utils.PrintError("Failed create dictionary", err)
 }
