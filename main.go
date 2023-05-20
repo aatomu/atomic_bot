@@ -45,10 +45,11 @@ type UserSetting struct {
 
 var (
 	//変数定義
-	clientID = ""
-	token    = flag.String("token", "", "bot token")
-	sessions Sessions
-	dummy    = UserSetting{
+	clientID       = ""
+	token          = flag.String("token", "", "bot token")
+	sessions       Sessions
+	discordSession *discordgo.Session
+	dummy          = UserSetting{
 		Lang:  "auto",
 		Speed: 1.5,
 		Pitch: 1.1,
@@ -146,6 +147,8 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	mData := discordbot.MessageParse(discord, m)
 	log.Println(mData.FormatText)
+
+	discordSession = discord
 
 	// 読み上げ無し のチェック
 	if strings.HasPrefix(m.Content, ";") {
@@ -261,6 +264,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		}
 
 		sessions.Add(session)
+		discordSession = discord
 		go func() {
 			ticker := time.NewTicker(3 * time.Minute)
 			for {
@@ -268,7 +272,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 				if sessions.Get(i.GuildID) == nil {
 					break
 				}
-				session.vcsession = discord.VoiceConnections[i.GuildID]
+				session.vcsession = discordSession.VoiceConnections[i.GuildID]
 			}
 		}()
 
@@ -683,11 +687,11 @@ func (session *SessionData) Speech(userID string, text string) {
 		text = replace.ReplaceAllString(text, "ピーーーー")
 	}
 
-	// //改行停止
-	// if strings.Contains(text, "\n") {
-	// 	replace := regexp.MustCompile(`\n.*`)
-	// 	text = replace.ReplaceAllString(text, "")
-	// }
+	//改行停止
+	if strings.Contains(text, "\n") {
+		replace := regexp.MustCompile(`\n.*`)
+		text = replace.ReplaceAllString(text, "以下略")
+	}
 
 	//text cut
 	read := atomicgo.StrCut(text, "", 100)
