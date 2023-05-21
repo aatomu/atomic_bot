@@ -243,54 +243,91 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	// debug
-	if utils.RegMatch(mData.Message, "^!debug") && mData.UserID == "701336137012215818" {
-		// セッション処理
-		if utils.RegMatch(mData.Message, "[0-9]$") {
-			guildID := utils.RegReplace(mData.Message, "", `^a debug\s*`)
-			log.Println("Deleting SessionItem : " + guildID)
-			sessions.Delete(guildID)
-			return
-		}
+	if mData.UserID == "701336137012215818" {
+		switch {
+		case utils.RegMatch(mData.Message, "^!debug"):
+			// セッション処理
+			if utils.RegMatch(mData.Message, "[0-9]$") {
+				guildID := utils.RegReplace(mData.Message, "", `^!debug\s*`)
+				log.Println("Deleting SessionItem : " + guildID)
+				sessions.Delete(guildID)
+				return
+			}
 
-		// ユーザー一覧
-		VCdata := map[string][]string{}
-		for _, guild := range discord.State.Guilds {
-			for _, vs := range guild.VoiceStates {
-				user, err := discord.User(vs.UserID)
-				if err != nil {
+			// ユーザー一覧
+			VCdata := map[string][]string{}
+			for _, guild := range discord.State.Guilds {
+				for _, vs := range guild.VoiceStates {
+					user, err := discord.User(vs.UserID)
+					if err != nil {
+						continue
+					}
+					VCdata[vs.GuildID] = append(VCdata[vs.GuildID], user.String())
+				}
+			}
+
+			// 表示
+			for _, session := range sessions.guilds {
+				guild, err := discord.Guild(session.guildID)
+				if utils.PrintError("Failed Get GuildData by GuildID", err) {
 					continue
 				}
-				VCdata[vs.GuildID] = append(VCdata[vs.GuildID], user.String())
+
+				channel, err := discord.Channel(session.channelID)
+				if utils.PrintError("Failed Get ChannelData by ChannelID", err) {
+					continue
+				}
+
+				embed, err := discord.ChannelMessageSendEmbed(mData.ChannelID, &discordgo.MessageEmbed{
+					Type:        "rich",
+					Title:       fmt.Sprintf("Guild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
+					Description: fmt.Sprintf("Members:```\n%s```", VCdata[guild.ID]),
+					Color:       embedFailedColor,
+				})
+				if err == nil {
+					go func() {
+						time.Sleep(30 * time.Second)
+						err := discord.ChannelMessageDelete(mData.ChannelID, embed.ID)
+						utils.PrintError("failed delete debug message", err)
+					}()
+				}
 			}
+			return
+		case mData.Message == "!join":
+			session := sessions.Get(mData.GuildID)
+
+			if session.IsJoined() {
+				return
+			}
+
+			vcSession, err := discordbot.JoinUserVCchannel(discord, mData.UserID, false, true)
+			if err != nil {
+				return
+			}
+
+			session = &SessionData{
+				guildID:   mData.GuildID,
+				channelID: mData.ChannelID,
+				vcsession: vcSession,
+				lead:      sync.Mutex{},
+			}
+
+			sessions.Add(session)
+			discordSession = discord
+			go func() {
+				ticker := time.NewTicker(3 * time.Minute)
+				for {
+					<-ticker.C
+					if sessions.Get(mData.GuildID) == nil {
+						break
+					}
+					session.vcsession = discordSession.VoiceConnections[mData.GuildID]
+				}
+			}()
+
+			session.Speech("BOT", "おはー")
+			return
 		}
-
-		// 表示
-		for _, session := range sessions.guilds {
-			guild, err := discord.Guild(session.guildID)
-			if utils.PrintError("Failed Get GuildData by GuildID", err) {
-				continue
-			}
-
-			channel, err := discord.Channel(session.channelID)
-			if utils.PrintError("Failed Get ChannelData by ChannelID", err) {
-				continue
-			}
-
-			embed, err := discord.ChannelMessageSendEmbed(mData.ChannelID, &discordgo.MessageEmbed{
-				Type:        "rich",
-				Title:       fmt.Sprintf("Guild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
-				Description: fmt.Sprintf("Members:```\n%s```", VCdata[guild.ID]),
-				Color:       embedFailedColor,
-			})
-			if err == nil {
-				go func() {
-					time.Sleep(30 * time.Second)
-					err := discord.ChannelMessageDelete(mData.ChannelID, embed.ID)
-					utils.PrintError("failed delete debug message", err)
-				}()
-			}
-		}
-		return
 	}
 
 	//読み上げ
