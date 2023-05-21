@@ -105,10 +105,10 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 	var minPitch float64 = 0.5
 	new(slashlib.Command).
 		//TTS
-		AddCommand("join", "VoiceChatに接続します", 0).
-		AddCommand("leave", "VoiceChatから切断します", 0).
-		AddCommand("get", "読み上げ設定を表示します", 0).
-		AddCommand("set", "読み上げ設定を変更します", 0).
+		AddCommand("join", "VoiceChatに接続します", discordgo.PermissionAllText).
+		AddCommand("leave", "VoiceChatから切断します", discordgo.PermissionAllText).
+		AddCommand("get", "読み上げ設定を表示します", discordgo.PermissionAllText).
+		AddCommand("set", "読み上げ設定を変更します", discordgo.PermissionAllText).
 		AddOption(&discordgo.ApplicationCommandOption{
 			Type:        discordgo.ApplicationCommandOptionNumber,
 			Name:        "speed",
@@ -141,15 +141,15 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 			Description: "置換先",
 			Required:    true,
 		}).
-		AddCommand("read", "Botメッセージを読み上げるか変更します", 0).
-		AddCommand("mute", "指定されたユーザーメッセージの読み上げを変更します", 0).
+		AddCommand("read", "Botメッセージを読み上げるか変更します", discordgo.PermissionAllText).
+		AddCommand("mute", "指定されたユーザーメッセージの読み上げを変更します", discordgo.PermissionAllText).
 		AddOption(&discordgo.ApplicationCommandOption{
 			Type:        discordgo.ApplicationCommandOptionUser,
 			Name:        "user",
 			Description: "読み上げするかを変更するユーザー",
 			Required:    true,
 		}).
-		AddCommand("update", "参加,退出を通知します", 0).
+		AddCommand("update", "参加,退出を通知します", discordgo.PermissionAllText).
 		//その他
 		AddCommand("poll", "投票を作成します", 0).
 		AddOption(&discordgo.ApplicationCommandOption{
