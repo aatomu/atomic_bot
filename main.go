@@ -45,11 +45,11 @@ type UserSetting struct {
 
 var (
 	//変数定義
-	clientID       = ""
-	token          = flag.String("token", "", "bot token")
-	sessions       Sessions
-	discordSession *discordgo.Session
-	dummy          = UserSetting{
+	clientID              = ""
+	token                 = flag.String("token", "", "bot token")
+	sessions              Sessions
+	isVcSessionUpdateLock = false
+	dummy                 = UserSetting{
 		Lang:  "auto",
 		Speed: 1.5,
 		Pitch: 1.1,
@@ -235,7 +235,22 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	mData := discordbot.MessageParse(discord, m)
 	log.Println(mData.FormatText)
 
-	discordSession = discord
+	// VCsession更新
+	go func(discordFunc *discordgo.Session) {
+		if isVcSessionUpdateLock {
+			return
+		}
+
+		isVcSessionUpdateLock = true
+		defer func() {
+			time.Sleep(1 * time.Minute)
+			isVcSessionUpdateLock = false
+		}()
+
+		for _, session := range sessions.guilds {
+			session.vcsession = discordFunc.VoiceConnections[session.guildID]
+		}
+	}(discord)
 
 	// 読み上げ無し のチェック
 	if strings.HasPrefix(m.Content, ";") {
@@ -300,32 +315,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 				return
 			}
 
-			vcSession, err := discordbot.JoinUserVCchannel(discord, mData.UserID, false, true)
-			if err != nil {
-				return
-			}
-
-			session = &SessionData{
-				guildID:   mData.GuildID,
-				channelID: mData.ChannelID,
-				vcsession: vcSession,
-				lead:      sync.Mutex{},
-			}
-
-			sessions.Add(session)
-			discordSession = discord
-			go func() {
-				ticker := time.NewTicker(3 * time.Minute)
-				for {
-					<-ticker.C
-					if sessions.Get(mData.GuildID) == nil {
-						break
-					}
-					session.vcsession = discordSession.VoiceConnections[mData.GuildID]
-				}
-			}()
-
-			session.Speech("BOT", "おはー")
+			JoinVoice(discord, m.GuildID, m.ChannelID, m.Author.ID, slashlib.InteractionResponse{})
 			return
 		}
 	}
@@ -374,35 +364,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		vcSession, err := discordbot.JoinUserVCchannel(discord, i.UserID, false, true)
-		if utils.PrintError("Failed Join VoiceChat", err) {
-			Failed(res, "ユーザーが VoiceChatに接続していない\nもしくは権限が不足しています")
-			return
-		}
-
-		session := &SessionData{
-			guildID:   i.GuildID,
-			channelID: i.ChannelID,
-			vcsession: vcSession,
-			lead:      sync.Mutex{},
-		}
-
-		sessions.Add(session)
-		discordSession = discord
-		go func() {
-			ticker := time.NewTicker(3 * time.Minute)
-			for {
-				<-ticker.C
-				if sessions.Get(i.GuildID) == nil {
-					break
-				}
-				session.vcsession = discordSession.VoiceConnections[i.GuildID]
-			}
-		}()
-
-		session.Speech("BOT", "おはー")
-		Success(res, "ハロー!")
-
+		JoinVoice(discord, i.GuildID, i.ChannelID, i.UserID, res)
 		return
 
 	case "leave":
@@ -766,6 +728,31 @@ func (s *Sessions) Delete(guildID string) {
 		newSessions = append(newSessions, session)
 	}
 	s.guilds = newSessions
+}
+
+// Join Voice
+func JoinVoice(discord *discordgo.Session, guildID, channelID, userID string, res slashlib.InteractionResponse) {
+	vcSession, err := discordbot.JoinUserVCchannel(discord, userID, false, true)
+	if utils.PrintError("Failed Join VoiceChat", err) {
+		if res.Discord != nil {
+			Failed(res, "ユーザーが VoiceChatに接続していない\nもしくは権限が不足しています")
+		}
+		return
+	}
+
+	session := &SessionData{
+		guildID:   guildID,
+		channelID: channelID,
+		vcsession: vcSession,
+		lead:      sync.Mutex{},
+	}
+
+	sessions.Add(session)
+
+	session.Speech("BOT", "おはー")
+	if res.Discord != nil {
+		Success(res, "ハロー!")
+	}
 }
 
 // Is Joined Session
