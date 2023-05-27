@@ -774,13 +774,27 @@ func (session *SessionData) Speech(userID string, text string) {
 		}
 	}
 
-	if regexp.MustCompile(`<a:|<:|<@|<#|<@&|http|` + "```").MatchString(text) {
-		text = "すーきっぷ"
-	}
-
-	//! ? { } < >を読み上げない
-	replace := regexp.MustCompile(`!|\?|{|}|<|>`)
-	text = replace.ReplaceAllString(text, "")
+	// Special Character
+	text = regexp.MustCompile(`<:[a-z]+?:[0-9]+?>`).ReplaceAllString(text, "あっと えもじ") // custom Emoji
+	text = regexp.MustCompile(`<@[0-9]+?>`).ReplaceAllString(text, "あっと ゆーざー")        // user mention
+	text = regexp.MustCompile(`<@&[0-9]+?>`).ReplaceAllString(text, "あっと ろーる")        // user mention
+	text = regexp.MustCompile(`<#[0-9]+?>`).ReplaceAllString(text, "あっと ちゃんねる")       // channel
+	text = regexp.MustCompile(`https?:.+`).ReplaceAllString(text, "ゆーあーるえる すーきっぷ")    // URL
+	// text = regexp.MustCompile(`「(.+)」|（(.+)）|\((.+)\)|〈(.+)〉|<(.+)>|《(.+)》|〔(.+)〕|【(.+)】|｛(.+)｝|{(.+)}|［(.+)］|[(.+)]`).ReplaceAllString(text, "") //brackets
+	// Word Decoration 3
+	text = regexp.MustCompile(`>>> `).ReplaceAllString(text, "")                  // quote
+	text = regexp.MustCompile("```.*```").ReplaceAllString(text, "こーどぶろっく すーきっぷ") // codeblock
+	// Word Decoration 2
+	text = regexp.MustCompile(`~~(.+)~~`).ReplaceAllString(text, "$1")     // strikethrough
+	text = regexp.MustCompile(`__(.+)__`).ReplaceAllString(text, "$1")     // underlined
+	text = regexp.MustCompile(`\*\*(.+)\*\*`).ReplaceAllString(text, "$1") // bold
+	// Word Decoration 1
+	text = regexp.MustCompile(`> `).ReplaceAllString(text, "")         // 1line quote
+	text = regexp.MustCompile("`(.+)`").ReplaceAllString(text, "$1")   // code
+	text = regexp.MustCompile(`_(.+)_`).ReplaceAllString(text, "$1")   // italic
+	text = regexp.MustCompile(`\*(.+)\*`).ReplaceAllString(text, "$1") // bold
+	// Delete black Newline
+	text = regexp.MustCompile(`^\n+`).ReplaceAllString(text, "")
 
 	settingData, err := userConfig(userID, UserSetting{})
 	utils.PrintError("Failed func userConfig()", err)
