@@ -780,7 +780,7 @@ func (session *SessionData) Speech(userID string, text string) {
 	text = regexp.MustCompile(`<@&[0-9]+?>`).ReplaceAllString(text, "あっと ろーる")        // user mention
 	text = regexp.MustCompile(`<#[0-9]+?>`).ReplaceAllString(text, "あっと ちゃんねる")       // channel
 	text = regexp.MustCompile(`https?:.+`).ReplaceAllString(text, "ゆーあーるえる すーきっぷ")    // URL
-	// text = regexp.MustCompile(`「(.+)」|（(.+)）|\((.+)\)|〈(.+)〉|<(.+)>|《(.+)》|〔(.+)〕|【(.+)】|｛(.+)｝|{(.+)}|［(.+)］|[(.+)]`).ReplaceAllString(text, "") //brackets
+	text = regexp.MustCompile(`(?s)\|\|.*\|\|`).ReplaceAllString(text, "ひみつ")         // hidden word
 	// Word Decoration 3
 	text = regexp.MustCompile(`>>> `).ReplaceAllString(text, "")                  // quote
 	text = regexp.MustCompile("```.*```").ReplaceAllString(text, "こーどぶろっく すーきっぷ") // codeblock
@@ -795,6 +795,12 @@ func (session *SessionData) Speech(userID string, text string) {
 	text = regexp.MustCompile(`\*(.+)\*`).ReplaceAllString(text, "$1") // bold
 	// Delete black Newline
 	text = regexp.MustCompile(`^\n+`).ReplaceAllString(text, "")
+	// Delete More Newline
+	if strings.Count(text, "\n") > 5 {
+		str := strings.Split(text, "\n")
+		text = strings.Join(str[:5], "\n")
+		text += "以下略"
+	}
 
 	settingData, err := userConfig(userID, UserSetting{})
 	utils.PrintError("Failed func userConfig()", err)
@@ -804,18 +810,6 @@ func (session *SessionData) Speech(userID string, text string) {
 		if regexp.MustCompile(`^[a-zA-Z0-9\s.,]+$`).MatchString(text) {
 			settingData.Lang = "en"
 		}
-	}
-
-	//隠れてるところを読み上げない
-	if strings.Contains(text, "||") {
-		replace := regexp.MustCompile(`(?s)\|\|.*\|\|`)
-		text = replace.ReplaceAllString(text, "ピーーーー")
-	}
-
-	//改行停止
-	if strings.Contains(text, "\n") {
-		replace := regexp.MustCompile(`\n.*`)
-		text = replace.ReplaceAllString(text, "以下略")
 	}
 
 	//text cut
