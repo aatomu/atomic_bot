@@ -236,21 +236,21 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	log.Println(mData.FormatText)
 
 	// VCsession更新
-	go func(discordFunc *discordgo.Session) {
+	go func() {
 		if isVcSessionUpdateLock {
 			return
 		}
 
 		isVcSessionUpdateLock = true
 		defer func() {
-			time.Sleep(1 * time.Minute)
+			time.Sleep(3 * time.Minute)
 			isVcSessionUpdateLock = false
 		}()
 
 		for _, session := range sessions.guilds {
-			session.vcsession = discordFunc.VoiceConnections[session.guildID]
+			session.vcsession = discord.VoiceConnections[session.guildID]
 		}
-	}(discord)
+	}()
 
 	// 読み上げ無し のチェック
 	if strings.HasPrefix(m.Content, ";") {
