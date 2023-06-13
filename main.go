@@ -247,8 +247,8 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			isVcSessionUpdateLock = false
 		}()
 
-		for _, session := range sessions.guilds {
-			session.vcsession = discord.VoiceConnections[session.guildID]
+		for i := range sessions.guilds {
+			sessions.guilds[i].vcsession = discord.VoiceConnections[sessions.guilds[i].guildID]
 		}
 	}()
 
