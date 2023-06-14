@@ -241,6 +241,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
+		// 更新チェック
 		isVcSessionUpdateLock = true
 		defer func() {
 			time.Sleep(1 * time.Minute)
@@ -248,7 +249,12 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}()
 
 		for i := range sessions.guilds {
-			sessions.guilds[i].vcsession = discord.VoiceConnections[sessions.guilds[i].guildID]
+			go func(n int) {
+				session := sessions.guilds[n]
+				session.lead.Lock()
+				defer session.lead.Unlock()
+				session.vcsession = discord.VoiceConnections[session.guildID]
+			}(i)
 		}
 	}()
 
