@@ -243,7 +243,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 		isVcSessionUpdateLock = true
 		defer func() {
-			time.Sleep(3 * time.Minute)
+			time.Sleep(1 * time.Minute)
 			isVcSessionUpdateLock = false
 		}()
 
