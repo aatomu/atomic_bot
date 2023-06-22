@@ -62,25 +62,24 @@ Golangで自分のために作成
 開発環境: go1.20.1 linux/amd64 ffmpeg:4.4.2-0ubuntu0.22.04.1  
 
 ## -必要permission-  
-OAuth2:  
-```
-BOT  
-applications.commands
-```
-Bot:  
-```
-General
- Read Messages/View Channels
-Text
- Send Messages
- Embed Links
- Read Message History
- Use External Emojis
- Add Reactions
-Voice
- Connect
- Speak
-```
+* SETTINGS
+  * OAuth2
+    * [x] BOT
+      * General Permissions
+        * [x] Read Message
+      * Text Permissions
+        * [x] Send Messages
+        * [x] Embed Links
+        * [x] Read Message History
+        * [x] Add Reactions
+      * Voice Permissions
+        * [x] Connect
+        * [x] Speak
+    * [x] applications.commands
+  * Bot
+    * Privileged Gateway Intents
+      * [x] MESSAGE CONTENT INTENT
+
 招待リンク `https://discord.com/api/oauth2/authorize?client_id=<Your Bot Client ID>&permissions=3492928&scope=applications.commands%20bot`  
   
 ## -起動-  
