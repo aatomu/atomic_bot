@@ -54,8 +54,7 @@ var (
 		Speed: 1.5,
 		Pitch: 1.1,
 	}
-	embedSuccessColor = 0x1E90FF
-	embedFailedColor  = 0x00008f
+	embedColor = 0x1E90FF
 )
 
 func main() {
@@ -84,7 +83,7 @@ func main() {
 				Type:        "rich",
 				Title:       "__Infomation__",
 				Description: "Sorry. Bot will Shutdown. Will be try later.",
-				Color:       embedFailedColor,
+				Color:       embedColor,
 			})
 		}
 		discord.Close()
@@ -303,7 +302,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 					Type:        "rich",
 					Title:       fmt.Sprintf("Guild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
 					Description: fmt.Sprintf("Members:```\n%s```", VCdata[guild.ID]),
-					Color:       embedFailedColor,
+					Color:       embedColor,
 				})
 				if err == nil {
 					go func() {
@@ -571,7 +570,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			Embeds: []*discordgo.MessageEmbed{
 				{
 					Title:       title,
-					Color:       embedSuccessColor,
+					Color:       embedColor,
 					Description: description,
 				},
 			},
@@ -836,7 +835,7 @@ func Failed(res slashlib.InteractionResponse, description string) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Title:       "Command Failed",
-				Color:       embedFailedColor,
+				Color:       embedColor,
 				Description: description,
 			},
 		},
@@ -850,7 +849,7 @@ func Success(res slashlib.InteractionResponse, description string) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Title:       "Command Success",
-				Color:       embedSuccessColor,
+				Color:       embedColor,
 				Description: description,
 			},
 		},
