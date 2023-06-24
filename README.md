@@ -92,3 +92,7 @@ slash化しました
 Bot Souce Code : https://github.com/takanakahiko/discord-tts  
 Bot API Code   : https://github.com/bwmarrin/discordgo  
 Bot Language   : https://golang.org/  
+
+## Invite
+(不定期に落ちます)
+https://www.aatomu.work/discord/im_a_bot
