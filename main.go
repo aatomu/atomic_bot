@@ -632,15 +632,15 @@ func userConfig(userID string, user UserSetting) (result UserSetting, err error)
 	// 書き込み
 	if user != nilUserSetting {
 		//lang
-		if user.Lang != "" {
+		if user.Lang != result.Lang {
 			result.Lang = user.Lang
 		}
 		//speed
-		if user.Speed != 0.0 {
+		if user.Speed != result.Speed {
 			result.Speed = user.Speed
 		}
 		//pitch
-		if user.Pitch != 0 {
+		if user.Pitch != result.Pitch {
 			result.Pitch = user.Pitch
 		}
 		//最後に書き込むテキストを追加(Write==trueの時)
