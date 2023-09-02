@@ -1,5 +1,5 @@
-github.com/aatomu/atomicgo v1.0.0 h1:xzJk/iJsQXpFhrNjfoS8jUd8Ghw4qOsCjYaVDKWvW/0=
-github.com/aatomu/atomicgo v1.0.0/go.mod h1:1B5llhTi34KrNWQBRa2VwaPUPFoBGa8DF+dCCP30Qf4=
+github.com/aatomu/atomicgo v0.0.0-20230902080359-58e184602ae2 h1:kqwJfBaj1lSq6ZWoy7je+T4zM+/rwOLHE63xSZcGLgU=
+github.com/aatomu/atomicgo v0.0.0-20230902080359-58e184602ae2/go.mod h1:1B5llhTi34KrNWQBRa2VwaPUPFoBGa8DF+dCCP30Qf4=
 github.com/aatomu/slashlib v1.0.0 h1:wLemOx0Age8mQOew2DdS6KhvI8/nfo108W5w0F3NgUc=
 github.com/aatomu/slashlib v1.0.0/go.mod h1:afdJjs/LI+murBxpiR2xi83MBtYTJwTEC1L9iGpRBqA=
 github.com/bwmarrin/discordgo v0.27.1 h1:ib9AIc/dom1E/fSIulrBwnez0CToJE113ZGt4HoliGY=
