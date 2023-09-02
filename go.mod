@@ -1,10 +1,10 @@
 module github.com/aatomu/atomic_bot
 
-go 1.17
+go 1.20
 
 require (
-	github.com/aatomu/atomicgo v0.0.0-20230622111408-caa17761d9e7
-	github.com/aatomu/slashlib v0.0.0-20230520173330-e41f6dc1e128
+	github.com/aatomu/atomicgo v1.0.0
+	github.com/aatomu/slashlib v1.0.0
 	github.com/bwmarrin/discordgo v0.27.1
 	golang.org/x/text v0.10.0
 )
