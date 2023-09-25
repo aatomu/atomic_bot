@@ -83,7 +83,7 @@ Golangで自分のために作成
 招待リンク `https://discord.com/api/oauth2/authorize?client_id=<Your Bot Client ID>&permissions=3492928&scope=applications.commands%20bot`  
   
 ## -起動-  
-```go run main.go -token=<bot token>```
+```go run . -token=<bot token>```
   
 ## -botｺﾏﾝﾄﾞ-  
 slash化しました

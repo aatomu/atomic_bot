@@ -1,53 +1,24 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"net/url"
 	"time"
 
 	"log"
-	"os"
-	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/aatomu/atomicgo/discordbot"
-	"github.com/aatomu/atomicgo/files"
 	"github.com/aatomu/atomicgo/utils"
 	"github.com/aatomu/slashlib"
 	"github.com/bwmarrin/discordgo"
-	"golang.org/x/text/language"
 )
-
-type Sessions struct {
-	save   sync.Mutex
-	guilds []*SessionData
-}
-
-type SessionData struct {
-	guildID    string
-	channelID  string
-	vcsession  *discordgo.VoiceConnection
-	lead       sync.Mutex
-	enableBot  bool
-	mutedUsers []string
-	updateInfo bool
-}
-
-type UserSetting struct {
-	Lang  string  `json:"language"`
-	Speed float64 `json:"speed"`
-	Pitch float64 `json:"pitch"`
-}
 
 var (
 	//変数定義
 	clientID              = ""
 	token                 = flag.String("token", "", "bot token")
-	sessions              Sessions
+	ttsSession            ttsSessions
 	isVcSessionUpdateLock = false
 	dummy                 = UserSetting{
 		Lang:  "auto",
@@ -78,7 +49,7 @@ func main() {
 	//起動
 	discordbot.Start(discord)
 	defer func() {
-		for _, session := range sessions.guilds {
+		for _, session := range ttsSession.guilds {
 			discord.ChannelMessageSendEmbed(session.channelID, &discordgo.MessageEmbed{
 				Type:        "rich",
 				Title:       "__Infomation__",
@@ -138,14 +109,6 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 			Type:        discordgo.ApplicationCommandOptionString,
 			Name:        "to",
 			Description: "置換先",
-			Required:    true,
-		}).
-		AddCommand("read", "Botメッセージを読み上げるか変更します", discordgo.PermissionViewChannel).
-		AddCommand("mute", "指定されたユーザーメッセージの読み上げを変更します", discordgo.PermissionViewChannel).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionUser,
-			Name:        "user",
-			Description: "読み上げするかを変更するユーザー",
 			Required:    true,
 		}).
 		AddCommand("update", "参加,退出を通知します", discordgo.PermissionViewChannel).
@@ -224,7 +187,7 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	// state update
 	joinedGuilds := len(discord.State.Guilds)
-	joinedVC := len(sessions.guilds)
+	joinedVC := len(ttsSession.guilds)
 	VC := ""
 	if joinedVC != 0 {
 		VC = fmt.Sprintf(" %d鯖でお話し中", joinedVC)
@@ -247,12 +210,12 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			isVcSessionUpdateLock = false
 		}()
 
-		for i := range sessions.guilds {
+		for i := range ttsSession.guilds {
 			go func(n int) {
-				session := sessions.guilds[n]
+				session := ttsSession.guilds[n]
 				session.lead.Lock()
 				defer session.lead.Unlock()
-				session.vcsession = discord.VoiceConnections[session.guildID]
+				session.vc = discord.VoiceConnections[session.guildID]
 			}(i)
 		}
 	}()
@@ -270,7 +233,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			if utils.RegMatch(mData.Message, "[0-9]$") {
 				guildID := utils.RegReplace(mData.Message, "", `^!debug\s*`)
 				log.Println("Deleting SessionItem : " + guildID)
-				sessions.Delete(guildID)
+				ttsSession.Delete(guildID)
 				return
 			}
 
@@ -287,7 +250,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 
 			// 表示
-			for _, session := range sessions.guilds {
+			for _, session := range ttsSession.guilds {
 				guild, err := discord.Guild(session.guildID)
 				if utils.PrintError("Failed Get GuildData by GuildID", err) {
 					continue
@@ -313,20 +276,11 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 				}
 			}
 			return
-		case mData.Message == "!join":
-			session := sessions.Get(mData.GuildID)
-
-			if session.IsJoined() {
-				return
-			}
-
-			JoinVoice(discord, m.GuildID, m.ChannelID, m.Author.ID, slashlib.InteractionResponse{})
-			return
 		}
 	}
 
 	//読み上げ
-	session := sessions.Get(mData.GuildID)
+	session := ttsSession.Get(mData.GuildID)
 	isMuted := false
 	if session != nil {
 		for _, mutedUserID := range session.mutedUsers {
@@ -346,54 +300,42 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 	// 表示&処理しやすく
 	i := slashlib.InteractionViewAndEdit(discord, iData)
 
-	// slashじゃない場合return
-	if i.Check != slashlib.SlashCommand {
-		return
-	}
-
 	// response用データ
 	res := slashlib.InteractionResponse{
 		Discord:     discord,
 		Interaction: iData.Interaction,
 	}
 
-	session := sessions.Get(i.GuildID)
 	// 分岐
 	switch i.Command.Name {
 	//TTS
 	case "join":
 		res.Thinking(false)
 
+		session := ttsSession.Get(i.GuildID)
 		if session.IsJoined() {
-			Failed(res, "VoiceChat にすでに接続しています")
+			ttsSession.Failed(res, "VoiceChat にすでに接続しています")
 			return
 		}
 
-		JoinVoice(discord, i.GuildID, i.ChannelID, i.UserID, res)
+		session.JoinVoice(res, i.GuildID, i.ChannelID, i.UserID)
 		return
 
 	case "leave":
 		res.Thinking(false)
 
+		session := ttsSession.Get(i.GuildID)
 		if !session.IsJoined() {
-			Failed(res, "VoiceChat に接続していません")
+			ttsSession.Failed(res, "VoiceChat に接続していません")
 			return
 		}
-
-		session.Speech("BOT", "さいなら")
-		Success(res, "グッバイ!")
-		time.Sleep(1 * time.Second)
-		session.vcsession.Disconnect()
-
-		sessions.Delete(i.GuildID)
-		return
 
 	case "get":
 		res.Thinking(false)
 
-		result, err := userConfig(i.UserID, UserSetting{})
+		result, err := ttsSession.Config(i.UserID, UserSetting{})
 		if utils.PrintError("Failed Get Config", err) {
-			Failed(res, "データのアクセスに失敗しました。")
+			ttsSession.Failed(res, "データのアクセスに失敗しました。")
 			return
 		}
 
@@ -410,138 +352,31 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 	case "set":
 		res.Thinking(false)
 
-		// 保存
-		result, err := userConfig(i.UserID, UserSetting{})
-		if utils.PrintError("Failed Get Config", err) {
-			Failed(res, "読み上げ設定を読み込めませんでした")
-			return
-		}
-
-		// チェック
-		if newSpeed, ok := i.CommandOptions["speed"]; ok {
-			result.Speed = newSpeed.FloatValue()
-		}
-		if newPitch, ok := i.CommandOptions["pitch"]; ok {
-			result.Pitch = newPitch.FloatValue()
-		}
-		if newLang, ok := i.CommandOptions["lang"]; ok {
-			result.Lang = newLang.StringValue()
-			// 言語チェック
-			_, err := language.Parse(result.Lang)
-			if result.Lang != "auto" && err != nil {
-				Failed(res, "不明な言語です\n\"auto\"もしくは言語コードのみ使用可能です")
-				return
-			}
-		}
-
-		_, err = userConfig(i.UserID, result)
-		if utils.PrintError("Failed Write Config", err) {
-			Failed(res, "保存に失敗しました")
-		}
-		Success(res, "読み上げ設定を変更しました")
+		ttsSession.UpdateConfig(res, i)
 		return
 
 	case "dic":
 		res.Thinking(false)
 
-		//ファイルの指定
-		fileName := "./dic/" + i.GuildID + ".txt"
-		//dicがあるか確認
-		if !CheckDic(i.GuildID) {
-			Failed(res, "辞書の読み込みに失敗しました")
-			return
-		}
-
-		textByte, _ := os.ReadFile(fileName)
-		dic := string(textByte)
-
-		//textをfrom toに
-		from := i.CommandOptions["from"].StringValue()
-		to := i.CommandOptions["to"].StringValue()
-
-		// 禁止文字チェック
-		if strings.Contains(from, ",") || strings.Contains(to, ",") {
-			Failed(res, "使用できない文字が含まれています")
-			return
-		}
-
-		//確認
-		if strings.Contains(dic, from+",") {
-			dic = utils.RegReplace(dic, "", "\n"+from+",.*")
-		}
-		dic = dic + from + "," + to + "\n"
-
-		//書き込み
-		err := files.WriteFileFlash(fileName, []byte(dic))
-		if !utils.PrintError("Config Update Failed", err) {
-			Failed(res, "辞書の書き込みに失敗しました")
-			return
-		}
-
-		Success(res, "辞書を保存しました\n\""+from+"\" => \""+to+"\"")
-		return
-
-	case "read":
-		res.Thinking(false)
-
-		// VC接続中かチェック
+		session := ttsSession.Get(i.GuildID)
 		if !session.IsJoined() {
-			Failed(res, "VoiceChat に接続していません")
+			ttsSession.Failed(res, "VoiceChat に接続していません")
 			return
 		}
 
-		session.enableBot = !session.enableBot
-
-		Success(res, fmt.Sprintf("Botメッセージの読み上げを %t に変更しました", session.enableBot))
-		return
-
-	case "mute":
-		res.Thinking(false)
-
-		// VC接続中かチェック
-		if !session.IsJoined() {
-			Failed(res, "VoiceChat に接続していません")
-			return
-		}
-
-		user := i.CommandOptions["user"].UserValue(discord)
-		if user == nil {
-			Failed(res, "Unknown User")
-			return
-		}
-		toMute := true
-		for _, userID := range session.mutedUsers {
-			if userID == user.ID {
-				toMute = false
-			}
-		}
-		if toMute {
-			session.mutedUsers = append(session.mutedUsers, user.ID)
-		} else {
-			var newMutedUsers []string
-			for _, userID := range session.mutedUsers {
-				if userID == user.ID {
-					continue
-				}
-				newMutedUsers = append(newMutedUsers, userID)
-			}
-			session.mutedUsers = newMutedUsers
-		}
-		Success(res, fmt.Sprintf("%s のメッセージの読み上げを %t に変更しました", user.String(), !toMute))
+		session.Dictionary(res, i)
 		return
 
 	case "update":
 		res.Thinking(false)
 
-		// VC接続中かチェック
+		session := ttsSession.Get(i.GuildID)
 		if !session.IsJoined() {
-			Failed(res, "VoiceChat に接続していません")
+			ttsSession.Failed(res, "VoiceChat に接続していません")
 			return
 		}
 
-		session.updateInfo = !session.updateInfo
-
-		Success(res, fmt.Sprintf("ボイスチャットの参加/退出の通知を %t に変更しました", session.updateInfo))
+		session.ToggleUpdate(res)
 		return
 
 		//その他
@@ -585,78 +420,6 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 	}
 }
 
-func userConfig(userID string, user UserSetting) (result UserSetting, err error) {
-	//BOTチェック
-	if userID == "BOT" {
-		return UserSetting{
-			Lang:  "ja",
-			Speed: 1.75,
-			Pitch: 1,
-		}, nil
-	}
-
-	//ファイルパスの指定
-	fileName := "./user_config.json"
-
-	if !files.IsAccess(fileName) {
-		if files.Create(fileName, false) != nil {
-			return dummy, fmt.Errorf("failed Create Config File")
-		}
-	}
-
-	bytes, err := os.ReadFile(fileName)
-	if err != nil {
-		return dummy, fmt.Errorf("failed Read Config File")
-	}
-
-	Users := map[string]UserSetting{}
-	if string(bytes) != "" {
-		err = json.Unmarshal(bytes, &Users)
-		utils.PrintError("failed UnMarshal UserConfig", err)
-	}
-
-	// チェック用
-	nilUserSetting := UserSetting{}
-	//上書き もしくはデータ作成
-	// result が  nil とき 書き込み
-	if _, ok := Users[userID]; !ok {
-		result = dummy
-		if user == nilUserSetting {
-			return
-		}
-	}
-	if config, ok := Users[userID]; ok && user == nilUserSetting {
-		return config, nil
-	}
-
-	// 書き込み
-	if user != nilUserSetting {
-		//lang
-		if user.Lang != result.Lang {
-			result.Lang = user.Lang
-		}
-		//speed
-		if user.Speed != result.Speed {
-			result.Speed = user.Speed
-		}
-		//pitch
-		if user.Pitch != result.Pitch {
-			result.Pitch = user.Pitch
-		}
-		//最後に書き込むテキストを追加(Write==trueの時)
-		Users[userID] = result
-		bytes, err = json.MarshalIndent(&Users, "", "  ")
-		fmt.Println(string(bytes))
-		if err != nil {
-			return dummy, fmt.Errorf("failed Marshal UserConfig")
-		}
-		//書き込み
-		files.WriteFileFlash(fileName, bytes)
-		log.Println("User userConfig Writed")
-	}
-	return
-}
-
 // VCでJoin||Leaveが起きたときにCall
 func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 	vData := discordbot.VoiceStateParse(discord, v)
@@ -666,213 +429,9 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 	log.Println(vData.FormatText)
 
 	//セッションがあるか確認
-	session := sessions.Get(v.GuildID)
+	session := ttsSession.Get(v.GuildID)
 	if session == nil {
 		return
 	}
-	vcChannelID := session.vcsession.ChannelID
-
-	// ボイスチャンネルに誰かいるか
-	isLeave := true
-	for _, guild := range discord.State.Guilds {
-		for _, vs := range guild.VoiceStates {
-			if vcChannelID == vs.ChannelID && vs.UserID != clientID {
-				isLeave = false
-				break
-			}
-		}
-	}
-
-	if isLeave {
-		// ボイスチャンネルに誰もいなかったら Disconnect する
-		session.vcsession.Disconnect()
-		sessions.Delete(v.GuildID)
-	} else {
-		// でなければ通知?
-		if !session.updateInfo {
-			return
-		}
-		if vData.Status.ChannelJoin {
-			session.Speech("BOT", fmt.Sprintf("%s join the voice", vData.UserData.Username))
-		} else { // 今 VCchannelIDがない
-			session.Speech("BOT", fmt.Sprintf("%s left the voice", vData.UserData.Username))
-		}
-	}
-}
-
-// Get Session
-func (s *Sessions) Get(guildID string) *SessionData {
-	for _, session := range s.guilds {
-		if session.guildID != guildID {
-			continue
-		}
-		return session
-	}
-	return nil
-}
-
-// Add Session
-func (s *Sessions) Add(newSession *SessionData) {
-	s.save.Lock()
-	defer s.save.Unlock()
-	s.guilds = append(s.guilds, newSession)
-}
-
-// Delete Session
-func (s *Sessions) Delete(guildID string) {
-	s.save.Lock()
-	defer s.save.Unlock()
-	var newSessions []*SessionData
-	for _, session := range s.guilds {
-		if session.guildID == guildID {
-			if session.vcsession != nil {
-				session.vcsession.Disconnect()
-			}
-			continue
-		}
-		newSessions = append(newSessions, session)
-	}
-	s.guilds = newSessions
-}
-
-// Join Voice
-func JoinVoice(discord *discordgo.Session, guildID, channelID, userID string, res slashlib.InteractionResponse) {
-	vcSession, err := discordbot.JoinUserVCchannel(discord, userID, false, true)
-	if utils.PrintError("Failed Join VoiceChat", err) {
-		if res.Discord != nil {
-			Failed(res, "ユーザーが VoiceChatに接続していない\nもしくは権限が不足しています")
-		}
-		return
-	}
-
-	session := &SessionData{
-		guildID:   guildID,
-		channelID: channelID,
-		vcsession: vcSession,
-		lead:      sync.Mutex{},
-	}
-
-	sessions.Add(session)
-
-	session.Speech("BOT", "おはー")
-	if res.Discord != nil {
-		Success(res, "ハロー!")
-	}
-}
-
-// Is Joined Session
-func (session *SessionData) IsJoined() bool {
-	return session != nil
-}
-
-// Speech in Session
-func (session *SessionData) Speech(userID string, text string) {
-	if CheckDic(session.guildID) {
-		data, _ := os.Open("./dic/" + session.guildID + ".txt")
-		defer data.Close()
-
-		scanner := bufio.NewScanner(data)
-		for scanner.Scan() {
-			line := scanner.Text()
-			words := strings.Split(line, ",")
-			text = strings.ReplaceAll(text, words[0], words[1])
-		}
-	}
-
-	// Special Character
-	text = regexp.MustCompile(`<a?:[A-Za-z0-9_]+?:[0-9]+?>`).ReplaceAllString(text, "えもじ") // custom Emoji
-	text = regexp.MustCompile(`<@[0-9]+?>`).ReplaceAllString(text, "あっと ゆーざー")             // user mention
-	text = regexp.MustCompile(`<@&[0-9]+?>`).ReplaceAllString(text, "あっと ろーる")             // user mention
-	text = regexp.MustCompile(`<#[0-9]+?>`).ReplaceAllString(text, "あっと ちゃんねる")            // channel
-	text = regexp.MustCompile(`https?:.+`).ReplaceAllString(text, "ゆーあーるえる すーきっぷ")         // URL
-	text = regexp.MustCompile(`(?s)\|\|.*\|\|`).ReplaceAllString(text, "ひみつ")              // hidden word
-	// Word Decoration 3
-	text = regexp.MustCompile(`>>> `).ReplaceAllString(text, "")                  // quote
-	text = regexp.MustCompile("```.*```").ReplaceAllString(text, "こーどぶろっく すーきっぷ") // codeblock
-	// Word Decoration 2
-	text = regexp.MustCompile(`~~(.+)~~`).ReplaceAllString(text, "$1")     // strikethrough
-	text = regexp.MustCompile(`__(.+)__`).ReplaceAllString(text, "$1")     // underlined
-	text = regexp.MustCompile(`\*\*(.+)\*\*`).ReplaceAllString(text, "$1") // bold
-	// Word Decoration 1
-	text = regexp.MustCompile(`> `).ReplaceAllString(text, "")         // 1line quote
-	text = regexp.MustCompile("`(.+)`").ReplaceAllString(text, "$1")   // code
-	text = regexp.MustCompile(`_(.+)_`).ReplaceAllString(text, "$1")   // italic
-	text = regexp.MustCompile(`\*(.+)\*`).ReplaceAllString(text, "$1") // bold
-	// Delete black Newline
-	text = regexp.MustCompile(`^\n+`).ReplaceAllString(text, "")
-	// Delete More Newline
-	if strings.Count(text, "\n") > 5 {
-		str := strings.Split(text, "\n")
-		text = strings.Join(str[:5], "\n")
-		text += "以下略"
-	}
-	//text cut
-	read := utils.StrCut(text, "以下略", 100)
-
-	settingData, err := userConfig(userID, UserSetting{})
-	utils.PrintError("Failed func userConfig()", err)
-
-	if settingData.Lang == "auto" {
-		settingData.Lang = "ja"
-		if regexp.MustCompile(`^[a-zA-Z0-9\s.,]+$`).MatchString(text) {
-			settingData.Lang = "en"
-		}
-	}
-
-	//読み上げ待機
-	session.lead.Lock()
-	defer session.lead.Unlock()
-
-	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), settingData.Lang)
-	var end chan bool
-	err = discordbot.PlayAudioFile(settingData.Speed, settingData.Pitch, session.vcsession, voiceURL, false, end)
-	utils.PrintError("Failed play Audio \""+read+"\" ", err)
-}
-
-// Command Failed Message
-func Failed(res slashlib.InteractionResponse, description string) {
-	_, err := res.Follow(&discordgo.WebhookParams{
-		Embeds: []*discordgo.MessageEmbed{
-			{
-				Title:       "Command Failed",
-				Color:       embedColor,
-				Description: description,
-			},
-		},
-	})
-	utils.PrintError("Failed send response", err)
-}
-
-// Command Success Message
-func Success(res slashlib.InteractionResponse, description string) {
-	_, err := res.Follow(&discordgo.WebhookParams{
-		Embeds: []*discordgo.MessageEmbed{
-			{
-				Title:       "Command Success",
-				Color:       embedColor,
-				Description: description,
-			},
-		},
-	})
-	utils.PrintError("Failed send response", err)
-}
-
-func CheckDic(guildID string) (ok bool) {
-	// dic.txtがあるか
-	if files.IsAccess("./dic/" + guildID + ".txt") {
-		return true
-	}
-
-	//フォルダがあるか確認
-	if !files.IsAccess("./dic") {
-		//フォルダがなかったら作成
-		err := files.Create("./dic", true)
-		if utils.PrintError("Failed Create Dic", err) {
-			return false
-		}
-	}
-
-	//ファイル作成
-	err := files.WriteFileFlash("./dic/"+guildID+".txt", []byte{})
-	return !utils.PrintError("Failed create dictionary", err)
+	session.AutoLeave(discord, vData.Status.ChannelJoin, vData.UserName)
 }
