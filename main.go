@@ -329,6 +329,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			ttsSession.Failed(res, "VoiceChat に接続していません")
 			return
 		}
+		session.LeaveVoice(res)
 
 	case "get":
 		res.Thinking(false)
