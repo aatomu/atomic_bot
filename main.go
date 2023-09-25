@@ -181,6 +181,7 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 			Description: "選択肢 10",
 			Required:    false,
 		}).
+		AddCommand("blackjack", "blackjackを開始します", discordgo.PermissionViewChannel).
 		CommandCreate(discord, "")
 }
 
@@ -278,45 +279,6 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 			return
 		}
-	}
-	// Session Check
-	s := blackjack.Get(m.GuildID)
-
-	if s == nil && m.Content == "blackjack" {
-		c, _ := discord.ChannelMessageSendComplex(mData.ChannelID, &discordgo.MessageSend{
-			Components: new(slashlib.Component).
-				AddLine().
-				AddButton(discordgo.Button{
-					Label:    "参加",
-					Style:    discordgo.PrimaryButton,
-					CustomID: "blackjack-game-join",
-				}).
-				AddButton(discordgo.Button{
-					Label:    "退出",
-					Style:    discordgo.PrimaryButton,
-					CustomID: "blackjack-game-leave",
-				}).
-				AddButton(discordgo.Button{
-					Label:    "ゲームを開始",
-					Style:    discordgo.SuccessButton,
-					CustomID: "blackjack-game-start",
-					Emoji: discordgo.ComponentEmoji{
-						Name: "",
-					},
-				}).
-				Parse(),
-		})
-		session := &blackjackSession{
-			guildID:     m.GuildID,
-			channelID:   c.ChannelID,
-			messageID:   c.ID,
-			fase:        Wait,
-			acceptUsers: map[string]bool{},
-			users:       map[string]*blackjackUser{},
-			cards:       blackjack.NewShuffledCards(),
-		}
-		blackjack.Add(session)
-		session.UpdateMessage(discord)
 	}
 
 	//読み上げ
@@ -458,7 +420,17 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		for i := 0; i < len(choices); i++ {
 			discord.MessageReactionAdd(m.ChannelID, m.ID, reaction[i])
 		}
+	case "blackjack":
+		// Session Check
+		session := blackjack.Get(i.GuildID)
+		if session != nil {
+			session.Failed(res, "すでに blackjackが存在します")
+		}
+
+		session.NewGame(res, i.GuildID, i.ChannelID)
+		return
 	}
+
 	switch i.Component.CustomID {
 	case "blackjack-game-join":
 		session := blackjack.Get(i.GuildID)

@@ -184,6 +184,43 @@ func (u *blackjackUser) CardNum(offset int) (num int) {
 	return
 }
 
+func (s *blackjackSession) NewGame(res slashlib.InteractionResponse, guildID, channelID string) {
+	c, _ := res.Discord.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+		Components: new(slashlib.Component).
+			AddLine().
+			AddButton(discordgo.Button{
+				Label:    "参加",
+				Style:    discordgo.PrimaryButton,
+				CustomID: "blackjack-game-join",
+			}).
+			AddButton(discordgo.Button{
+				Label:    "退出",
+				Style:    discordgo.PrimaryButton,
+				CustomID: "blackjack-game-leave",
+			}).
+			AddButton(discordgo.Button{
+				Label:    "ゲームを開始",
+				Style:    discordgo.SuccessButton,
+				CustomID: "blackjack-game-start",
+				Emoji: discordgo.ComponentEmoji{
+					Name: "",
+				},
+			}).
+			Parse(),
+	})
+	session := &blackjackSession{
+		guildID:     guildID,
+		channelID:   c.ChannelID,
+		messageID:   c.ID,
+		fase:        Wait,
+		acceptUsers: map[string]bool{},
+		users:       map[string]*blackjackUser{},
+		cards:       blackjack.NewShuffledCards(),
+	}
+	blackjack.Add(session)
+	session.UpdateMessage(res.Discord)
+}
+
 func (s *blackjackSession) GameJoin(res slashlib.InteractionResponse, userName string) {
 	if _, ok := s.users[userName]; ok {
 		s.Failed(res, "Blackjack にすでに参加済みです")
