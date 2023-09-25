@@ -185,6 +185,7 @@ func (u *blackjackUser) CardNum(offset int) (num int) {
 }
 
 func (s *blackjackSession) NewGame(res slashlib.InteractionResponse, guildID, channelID string) {
+	go res.Reply(nil)
 	c, _ := res.Discord.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
 		Components: new(slashlib.Component).
 			AddLine().
