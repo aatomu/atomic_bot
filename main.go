@@ -181,6 +181,43 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 			Description: "選択肢 10",
 			Required:    false,
 		}).
+		AddCommand("simple-poll", "簡易的な投票を作成", discordgo.PermissionViewChannel).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "text",
+			Description: "メッセージ内容",
+			Required:    true,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "reaction_1",
+			Description: "リアクション 1",
+			Required:    true,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "reaction_2",
+			Description: "リアクション 2",
+			Required:    true,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "reaction_3",
+			Description: "リアクション 3",
+			Required:    false,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "reaction_4",
+			Description: "リアクション 4",
+			Required:    false,
+		}).
+		AddOption(&discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "reaction_5",
+			Description: "リアクション 5",
+			Required:    false,
+		}).
 		AddCommand("blackjack", "blackjackを開始します", discordgo.PermissionViewChannel).
 		CommandCreate(discord, "")
 }
@@ -382,7 +419,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		session.ToggleUpdate(res)
 		return
 
-		//その他
+	//その他
 	case "poll":
 		res.Thinking(false)
 
@@ -419,6 +456,28 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		time.Sleep(1 * time.Second)
 		for i := 0; i < len(choices); i++ {
 			discord.MessageReactionAdd(m.ChannelID, m.ID, reaction[i])
+		}
+		//その他
+	case "simple-poll":
+		res.Reply(nil)
+
+		text := i.CommandOptions["text"].StringValue()
+		reactions := []string{}
+		for x := 1; x <= 5; x++ {
+			v, ok := i.CommandOptions[fmt.Sprintf("reaction_%d", x)]
+			if !ok {
+				continue
+			}
+			reactions = append(reactions, v.StringValue())
+		}
+
+		m, err := discord.ChannelMessageSend(i.ChannelID, text)
+		if err != nil {
+			return
+		}
+		time.Sleep(1 * time.Second)
+		for _, reaction := range reactions {
+			discord.MessageReactionAdd(m.ChannelID, m.ID, reaction)
 		}
 	case "blackjack":
 		// Session Check
