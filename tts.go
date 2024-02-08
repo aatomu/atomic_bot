@@ -155,8 +155,8 @@ func (session *ttsSessionData) Speech(userID string, text string) {
 	text = regexp.MustCompile(`https?:.+`).ReplaceAllString(text, "ゆーあーるえる すーきっぷ")         // URL
 	text = regexp.MustCompile(`(?s)\|\|.*\|\|`).ReplaceAllString(text, "ひみつ")              // hidden word
 	// Word Decoration 3
-	text = regexp.MustCompile(`>>> `).ReplaceAllString(text, "")                  // quote
-	text = regexp.MustCompile("```.*```").ReplaceAllString(text, "こーどぶろっく すーきっぷ") // codeblock
+	text = regexp.MustCompile(`>>> `).ReplaceAllString(text, "")                      // quote
+	text = regexp.MustCompile("(?s)```.*```").ReplaceAllString(text, "こーどぶろっく すーきっぷ") // codeblock
 	// Word Decoration 2
 	text = regexp.MustCompile(`~~(.+)~~`).ReplaceAllString(text, "$1")     // strike through
 	text = regexp.MustCompile(`__(.+)__`).ReplaceAllString(text, "$1")     // underlined
