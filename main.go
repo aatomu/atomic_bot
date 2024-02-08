@@ -163,23 +163,16 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	// bot status update
 	joinedGuilds := len(discord.State.Guilds)
 	joinedVC := len(ttsSession.guilds)
-	err := discord.UpdateStatusComplex(discordgo.UpdateStatusData{
+	discord.UpdateStatusComplex(discordgo.UpdateStatusData{
+		Status: string(discordgo.StatusOnline),
 		Activities: []*discordgo.Activity{
 			{
-				Name:    "i'm a bot",
-				Type:    discordgo.ActivityTypeCustom,
-				Details: "Working for everyone",
-				State:   "`/join` `/poll` Talking for everyone",
-				Party: discordgo.Party{
-					ID:   "1000",
-					Size: []int{joinedVC, joinedGuilds},
-				},
+				Name:  "i'm a bot",
+				Type:  discordgo.ActivityTypeListening,
+				State: fmt.Sprintf("Working on %d servers (Speech for %d servers)", joinedGuilds, joinedVC),
 			},
 		},
 	})
-	if err != nil {
-		logger.Error("failed update status", err)
-	}
 
 	mData := disgord.MessageParse(discord, m.Message)
 	if mData.Guild.Name == "Bot Repo" {
