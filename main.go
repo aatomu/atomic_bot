@@ -8,9 +8,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/aatomu/atomicgo/discordbot"
-	"github.com/aatomu/atomicgo/utils"
-	"github.com/aatomu/slashlib"
+	"github.com/aatomu/aatomlib/disgord"
+	"github.com/aatomu/aatomlib/utils"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -30,219 +29,165 @@ var (
 )
 
 func main() {
-	//flag入手
 	flag.Parse()
 	fmt.Println("token        :", *token)
 
-	//bot起動準備
-	discord, err := discordbot.Init(*token)
+	// Initialize bot
+	discord, err := discordgo.New("Bot " + *token)
 	if err != nil {
 		fmt.Println("Failed Bot Init", err)
 		return
 	}
 
-	//eventトリガー設定
+	// Set event handlers
 	discord.AddHandler(onReady)
 	discord.AddHandler(onMessageCreate)
 	discord.AddHandler(onInteractionCreate)
 	discord.AddHandler(onVoiceStateUpdate)
 
-	//起動
-	discordbot.Start(discord)
+	// Connect to Discord
+	discord.Open()
 	defer func() {
 		for _, session := range ttsSession.guilds {
 			discord.ChannelMessageSendEmbed(session.channelID, &discordgo.MessageEmbed{
 				Type:        "rich",
-				Title:       "__Infomation__",
+				Title:       "__Information__",
 				Description: "Sorry. Bot will Shutdown. Will be try later.",
 				Color:       embedColor,
 			})
 		}
 		discord.Close()
 	}()
-	//起動メッセージ表示
-	fmt.Println("Listening...")
 
-	//bot停止対策
 	<-utils.BreakSignal()
 }
 
-// BOTの準備が終わったときにCall
 func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 	clientID = discord.State.User.ID
 
-	// コマンドの追加
+	// Add slash command
 	var minSpeed float64 = 0.5
 	var minPitch float64 = 0.5
-	new(slashlib.Command).
-		//TTS
-		AddCommand("join", "VoiceChatに接続します", discordgo.PermissionViewChannel).
-		AddCommand("leave", "VoiceChatから切断します", discordgo.PermissionViewChannel).
-		AddCommand("get", "読み上げ設定を表示します", discordgo.PermissionViewChannel).
-		AddCommand("set", "読み上げ設定を変更します", discordgo.PermissionViewChannel).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionNumber,
-			Name:        "speed",
-			Description: "読み上げ速度を設定",
-			MinValue:    &minSpeed,
-			MaxValue:    5,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionNumber,
-			Name:        "pitch",
-			Description: "声の高さを設定",
-			MinValue:    &minPitch,
-			MaxValue:    1.5,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "lang",
-			Description: "読み上げ言語を設定",
-		}).
-		AddCommand("dic", "辞書を設定します", discordgo.PermissionViewChannel).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "from",
-			Description: "置換元",
-			Required:    true,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "to",
-			Description: "置換先",
-			Required:    true,
-		}).
-		AddCommand("update", "参加,退出を通知します", discordgo.PermissionViewChannel).
-		//その他
-		AddCommand("poll", "投票を作成します", discordgo.PermissionViewChannel).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "title",
-			Description: "投票のタイトル",
-			Required:    true,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "choice_1",
-			Description: "選択肢 1",
-			Required:    true,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "choice_2",
-			Description: "選択肢 2",
-			Required:    true,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "choice_3",
-			Description: "選択肢 3",
-			Required:    false,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "choice_4",
-			Description: "選択肢 4",
-			Required:    false,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "choice_5",
-			Description: "選択肢 5",
-			Required:    false,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "choice_6",
-			Description: "選択肢 6",
-			Required:    false,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "choice_7",
-			Description: "選択肢 7",
-			Required:    false,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "choice_8",
-			Description: "選択肢 8",
-			Required:    false,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "choice_9",
-			Description: "選択肢 9",
-			Required:    false,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "choice_10",
-			Description: "選択肢 10",
-			Required:    false,
-		}).
-		AddCommand("simple-poll", "簡易的な投票を作成", discordgo.PermissionViewChannel).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "text",
-			Description: "メッセージ内容",
-			Required:    true,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "reaction_1",
-			Description: "リアクション 1",
-			Required:    true,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "reaction_2",
-			Description: "リアクション 2",
-			Required:    true,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "reaction_3",
-			Description: "リアクション 3",
-			Required:    false,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "reaction_4",
-			Description: "リアクション 4",
-			Required:    false,
-		}).
-		AddOption(&discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "reaction_5",
-			Description: "リアクション 5",
-			Required:    false,
-		}).
-		AddCommand("blackjack", "blackjackを開始します", discordgo.PermissionViewChannel).
-		CommandCreate(discord, "")
+	disgord.InteractionCommandCreate(discord, "", []*discordgo.ApplicationCommand{
+		// Voice commands
+		{
+			Type:                     discordgo.ChatApplicationCommand,
+			Name:                     "join",
+			Description:              "VoiceChatに接続します",
+			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
+		},
+		{
+			Type:                     discordgo.ChatApplicationCommand,
+			Name:                     "leave",
+			Description:              "VoiceChatから切断します",
+			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
+		},
+		{
+			Type:                     discordgo.ChatApplicationCommand,
+			Name:                     "get",
+			Description:              "読み上げ設定を表示します",
+			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
+		},
+		{
+			Type:                     discordgo.ChatApplicationCommand,
+			Name:                     "set",
+			Description:              "読み上げ設定を変更します",
+			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
+			Options: []*discordgo.ApplicationCommandOption{
+				{Type: discordgo.ApplicationCommandOptionNumber, Name: "speed", Description: "読み上げ速度を設定", MinValue: &minSpeed, MaxValue: 5},
+				{Type: discordgo.ApplicationCommandOptionNumber, Name: "pitch", Description: "声の高さを設定", MinValue: &minPitch, MaxValue: 1.5},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "lang", Description: "読み上げ言語を設定"},
+			},
+		},
+		{
+			Type:                     discordgo.ChatApplicationCommand,
+			Name:                     "dic",
+			Description:              "辞書を設定します",
+			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
+			Options: []*discordgo.ApplicationCommandOption{
+				{Type: discordgo.ApplicationCommandOptionString, Name: "from", Description: "置換元", Required: true},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "to", Description: "置換先", Required: true},
+			},
+		},
+		{
+			Type:                     discordgo.ChatApplicationCommand,
+			Name:                     "update",
+			Description:              "参加,退出を通知します",
+			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
+		},
+		// Others
+		{
+			Type:                     discordgo.ChatApplicationCommand,
+			Name:                     "poll",
+			Description:              "投票を作成します",
+			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
+			Options: []*discordgo.ApplicationCommandOption{
+				{Type: discordgo.ApplicationCommandOptionString, Name: "title", Description: "投票のタイトル", Required: true},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_1", Description: "選択肢 1", Required: true},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_1", Description: "選択肢 1", Required: true},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_2", Description: "選択肢 2", Required: true},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_3", Description: "選択肢 3", Required: false},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_4", Description: "選択肢 4", Required: false},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_5", Description: "選択肢 5", Required: false},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_6", Description: "選択肢 6", Required: false},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_7", Description: "選択肢 7", Required: false},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_8", Description: "選択肢 8", Required: false},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_9", Description: "選択肢 9", Required: false},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_10", Description: "選択肢 10", Required: false},
+			},
+		},
+		{
+			Type:                     discordgo.ChatApplicationCommand,
+			Name:                     "simple-poll",
+			Description:              "簡易的な投票を作成",
+			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
+			Options: []*discordgo.ApplicationCommandOption{
+				{Type: discordgo.ApplicationCommandOptionString, Name: "text", Description: "メッセージ内容", Required: true},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_1", Description: "リアクション 1", Required: true},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_2", Description: "リアクション 2", Required: true},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_3", Description: "リアクション 3", Required: false},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_4", Description: "リアクション 4", Required: false},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_5", Description: "リアクション 5", Required: false},
+			},
+		},
+		{
+			Type:                     discordgo.ChatApplicationCommand,
+			Name:                     "blackjack",
+			Description:              "blackjackを開始します",
+			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
+		},
+	})
 }
 
-// メッセージが送られたときにCall
 func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
-	// state update
+	// bot status update
 	joinedGuilds := len(discord.State.Guilds)
 	joinedVC := len(ttsSession.guilds)
-	VC := ""
-	if joinedVC != 0 {
-		VC = fmt.Sprintf(" %d鯖でお話し中", joinedVC)
-	}
-	discordbot.BotStateUpdate(discord, fmt.Sprintf("/join | %d鯖で稼働中 %s", joinedGuilds, VC), 0)
+	discord.UpdateStatusComplex(discordgo.UpdateStatusData{
+		Activities: []*discordgo.Activity{
+			{
+				Name:    "i'm a bot",
+				Type:    discordgo.ActivityTypeCustom,
+				Details: "Working for everyone",
+				State:   "`/join` `/poll` Talking for",
+				Party: discordgo.Party{
+					ID:   "-1",
+					Size: []int{joinedVC, joinedGuilds},
+				},
+			},
+		},
+	})
 
-	mData := discordbot.MessageParse(discord, m)
+	mData := disgord.MessageParse(discord, m.Message)
 	log.Println(mData.FormatText)
 
-	// VCsession更新
+	// Update voice session
 	go func() {
 		if isVcSessionUpdateLock {
 			return
 		}
 
-		// 更新チェック
+		// Update check
 		isVcSessionUpdateLock = true
 		defer func() {
 			time.Sleep(1 * time.Minute)
@@ -259,24 +204,24 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}()
 
-	// 読み上げ無し のチェック
+	// Check reading skip
 	if strings.HasPrefix(m.Content, ";") {
 		return
 	}
 
 	// debug
-	if mData.UserID == "701336137012215818" {
+	if mData.User.ID == "701336137012215818" {
 		switch {
-		case utils.RegMatch(mData.Message, "^!debug"):
-			// セッション処理
-			if utils.RegMatch(mData.Message, "[0-9]$") {
-				guildID := utils.RegReplace(mData.Message, "", `^!debug\s*`)
+		case utils.RegMatch(mData.Message.Content, "^!debug"):
+			// Session delete
+			if utils.RegMatch(mData.Message.Content, "[0-9]$") {
+				guildID := utils.RegReplace(mData.Message.Content, "", `^!debug\s*`)
 				log.Println("Deleting SessionItem : " + guildID)
 				ttsSession.Delete(guildID)
 				return
 			}
 
-			// ユーザー一覧
+			// Voice channel user list
 			VCdata := map[string][]string{}
 			for _, guild := range discord.State.Guilds {
 				for _, vs := range guild.VoiceStates {
@@ -288,7 +233,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 				}
 			}
 
-			// 表示
+			// Return voice connection information
 			for _, session := range ttsSession.guilds {
 				guild, err := discord.Guild(session.guildID)
 				if utils.PrintError("Failed Get GuildData by GuildID", err) {
@@ -320,33 +265,24 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 
 	//読み上げ
 	session := ttsSession.Get(mData.GuildID)
-	isMuted := false
 	if session != nil {
-		for _, mutedUserID := range session.mutedUsers {
-			if mutedUserID == mData.UserID {
-				isMuted = true
-			}
-		}
-		if session.IsJoined() && !isMuted && session.channelID == mData.ChannelID && !(m.Author.Bot && !session.enableBot) {
-			session.Speech(mData.UserID, mData.Message)
+		if session.IsJoined() && session.channelID == mData.ChannelID && !(m.Author.Bot && !session.enableBot) {
+			session.Speech(mData.User.ID, mData.Message.Content)
 			return
 		}
 	}
 }
 
 // InteractionCreate
-func onInteractionCreate(discord *discordgo.Session, iData *discordgo.InteractionCreate) {
+func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCreate) {
 	// 表示&処理しやすく
-	i := slashlib.InteractionViewAndEdit(discord, iData)
+	iData := disgord.InteractionParse(discord, i.Interaction)
 
 	// response用データ
-	res := slashlib.InteractionResponse{
-		Discord:     discord,
-		Interaction: iData.Interaction,
-	}
+	res := disgord.NewInteractionResponse(discord, i.Interaction)
 
 	// 分岐
-	switch i.Command.Name {
+	switch iData.Command.Name {
 	//TTS
 	case "join":
 		res.Thinking(false)
@@ -357,7 +293,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		session.JoinVoice(res, i.GuildID, i.ChannelID, i.UserID)
+		session.JoinVoice(res, discord, i.GuildID, i.ChannelID, i.User.ID)
 		return
 
 	case "leave":
@@ -373,7 +309,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 	case "get":
 		res.Thinking(false)
 
-		result, err := ttsSession.Config(i.UserID, UserSetting{})
+		result, err := ttsSession.Config(iData.User.ID, UserSetting{})
 		if utils.PrintError("Failed Get Config", err) {
 			ttsSession.Failed(res, "データのアクセスに失敗しました。")
 			return
@@ -382,7 +318,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 		res.Follow(&discordgo.WebhookParams{
 			Embeds: []*discordgo.MessageEmbed{
 				{
-					Title:       fmt.Sprintf("@%s's Speech Config", i.UserName),
+					Title:       fmt.Sprintf("@%s's Speech Config", i.User.Username),
 					Description: fmt.Sprintf("```\nLang  : %4s\nSpeed : %3.2f\nPitch : %3.2f```", result.Lang, result.Speed, result.Pitch),
 				},
 			},
@@ -392,7 +328,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 	case "set":
 		res.Thinking(false)
 
-		ttsSession.UpdateConfig(res, i)
+		ttsSession.UpdateConfig(res, iData)
 		return
 
 	case "dic":
@@ -404,7 +340,7 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		session.Dictionary(res, i)
+		session.Dictionary(res, iData)
 		return
 
 	case "update":
@@ -423,17 +359,17 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 	case "poll":
 		res.Thinking(false)
 
-		title := i.CommandOptions["title"].StringValue()
+		title := iData.CommandOptions["title"].StringValue()
 		choices := []string{}
-		choices = append(choices, i.CommandOptions["choice_1"].StringValue())
-		choices = append(choices, i.CommandOptions["choice_2"].StringValue())
-		if value, ok := i.CommandOptions["choice_3"]; ok {
+		choices = append(choices, iData.CommandOptions["choice_1"].StringValue())
+		choices = append(choices, iData.CommandOptions["choice_2"].StringValue())
+		if value, ok := iData.CommandOptions["choice_3"]; ok {
 			choices = append(choices, value.StringValue())
 		}
-		if value, ok := i.CommandOptions["choice_4"]; ok {
+		if value, ok := iData.CommandOptions["choice_4"]; ok {
 			choices = append(choices, value.StringValue())
 		}
-		if value, ok := i.CommandOptions["choice_5"]; ok {
+		if value, ok := iData.CommandOptions["choice_5"]; ok {
 			choices = append(choices, value.StringValue())
 		}
 		description := ""
@@ -461,10 +397,10 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 	case "simple-poll":
 		res.Reply(nil)
 
-		text := i.CommandOptions["text"].StringValue()
+		text := iData.CommandOptions["text"].StringValue()
 		reactions := []string{}
 		for x := 1; x <= 5; x++ {
-			v, ok := i.CommandOptions[fmt.Sprintf("reaction_%d", x)]
+			v, ok := iData.CommandOptions[fmt.Sprintf("reaction_%d", x)]
 			if !ok {
 				continue
 			}
@@ -486,23 +422,23 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			session.Failed(res, "すでに blackjackが存在します")
 		}
 
-		session.NewGame(res, i.GuildID, i.ChannelID)
+		session.NewGame(res, discord, i.GuildID, i.ChannelID)
 		return
 	}
 
-	switch i.Component.CustomID {
+	switch iData.Component.CustomID {
 	case "blackjack-game-join":
 		session := blackjack.Get(i.GuildID)
 		if session == nil {
 			session.Failed(res, "現在 blackjack が行われていません")
 			return
 		}
-		if session.fase != Wait {
+		if session.phase != Wait {
 			res.Reply(nil)
 			return
 		}
 
-		session.GameJoin(res, i.UserName)
+		session.GameJoin(res, discord, i.User.Username)
 
 	case "blackjack-game-leave":
 		session := blackjack.Get(i.GuildID)
@@ -511,12 +447,12 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		if session.fase != Wait {
+		if session.phase != Wait {
 			res.Reply(nil)
 			return
 		}
 
-		session.GameLeave(res, i.UserName)
+		session.GameLeave(res, discord, i.User.Username)
 		return
 
 	case "blackjack-game-start":
@@ -526,12 +462,12 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		if session.fase != Wait {
+		if session.phase != Wait {
 			res.Reply(nil)
 			return
 		}
 
-		session.GameStart(res, i.UserName)
+		session.GameStart(res, discord, i.User.Username)
 		return
 
 	case "blackjack-bed-call":
@@ -541,12 +477,12 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		if session.fase != BetTime {
+		if session.phase != BetTime {
 			res.Reply(nil)
 			return
 		}
 
-		session.BetCall(res, i.UserName)
+		session.BetCall(res, i.User.Username)
 		return
 
 	case "blackjack-bed-close":
@@ -556,12 +492,12 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		if session.fase != BetTime {
+		if session.phase != BetTime {
 			res.Reply(nil)
 			return
 		}
 
-		session.BetClose(res, i.UserName)
+		session.BetClose(res, discord, i.User.Username)
 		return
 
 	case "blackjack-card-hit":
@@ -571,12 +507,12 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		if session.fase != HitTime {
+		if session.phase != HitTime {
 			res.Reply(nil)
 			return
 		}
 
-		session.CardHit(res, i.UserName)
+		session.CardHit(res, discord, i.User.Username)
 		return
 
 	case "blackjack-card-finish":
@@ -586,12 +522,12 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		if session.fase != HitTime {
+		if session.phase != HitTime {
 			res.Reply(nil)
 			return
 		}
 
-		session.CardFinish(res, i.UserName)
+		session.CardFinish(res, discord, i.User.Username)
 		return
 
 	case "blackjack-game-continue":
@@ -601,12 +537,12 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		if session.fase != Ended {
+		if session.phase != Ended {
 			res.Reply(nil)
 			return
 		}
 
-		session.GameContinue(res, i.UserName)
+		session.GameContinue(res, discord, i.User.Username)
 		return
 
 	case "blackjack-game-finish":
@@ -616,17 +552,17 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		if session.fase != Ended {
+		if session.phase != Ended {
 			res.Reply(nil)
 			return
 		}
 
-		session.GameFinish(res, i.UserName)
+		session.GameFinish(res, discord, i.User.Username)
 		blackjack.Delete(i.GuildID)
 		return
 	}
 
-	switch i.Submit.CustomID {
+	switch iData.Modal.CustomID {
 	case "blackjack-bed-input":
 		session := blackjack.Get(i.GuildID)
 		if session == nil {
@@ -634,19 +570,19 @@ func onInteractionCreate(discord *discordgo.Session, iData *discordgo.Interactio
 			return
 		}
 
-		if session.fase != BetTime {
+		if session.phase != BetTime {
 			res.Reply(nil)
 			return
 		}
-		session.UpdateBetValue(res, i.UserName, iData.ModalSubmitData())
+		session.UpdateBetValue(res, discord, i.User.Username, i.ModalSubmitData())
 		return
 	}
 }
 
 // VCでJoin||Leaveが起きたときにCall
 func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
-	vData := discordbot.VoiceStateParse(discord, v)
-	if !vData.StatusUpdate.ChannelJoin {
+	vData := disgord.VoiceStateParse(discord, v)
+	if !vData.UpdateStatus.ChannelJoin {
 		return
 	}
 	log.Println(vData.FormatText)
@@ -656,5 +592,9 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 	if session == nil {
 		return
 	}
-	session.AutoLeave(discord, vData.Status.ChannelJoin, vData.UserName)
+	session.AutoLeave(discord, vData.Status.ChannelJoin, vData.User.Username)
+}
+
+func Pinter(n int64) *int64 {
+	return &n
 }

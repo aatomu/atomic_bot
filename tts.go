@@ -7,15 +7,14 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/aatomu/atomicgo/discordbot"
-	"github.com/aatomu/atomicgo/files"
-	"github.com/aatomu/atomicgo/utils"
-	"github.com/aatomu/slashlib"
+	"github.com/aatomu/aatomlib/disgord"
+	"github.com/aatomu/aatomlib/utils"
 	"github.com/bwmarrin/discordgo"
 	"golang.org/x/text/language"
 )
@@ -31,7 +30,6 @@ type ttsSessionData struct {
 	vc         *discordgo.VoiceConnection
 	lead       sync.Mutex
 	enableBot  bool
-	mutedUsers []string
 	updateInfo bool
 }
 
@@ -77,12 +75,10 @@ func (s *ttsSessions) Delete(guildID string) {
 	s.guilds = newSessions
 }
 
-func (s *ttsSessionData) JoinVoice(res slashlib.InteractionResponse, guildID, channelID, userID string) {
-	vcSession, err := discordbot.JoinUserVCchannel(res.Discord, userID, false, true)
+func (s *ttsSessionData) JoinVoice(res *disgord.InteractionResponse, discord *discordgo.Session, guildID, channelID, userID string) {
+	vcSession, err := disgord.JoinUserVCchannel(discord, userID, false, true)
 	if utils.PrintError("Failed Join VoiceChat", err) {
-		if res.Discord != nil {
-			ttsSession.Failed(res, "ユーザーが VoiceChatに接続していない\nもしくは権限が不足しています")
-		}
+		ttsSession.Failed(res, "ユーザーが VoiceChatに接続していない\nもしくは権限が不足しています")
 		return
 	}
 
@@ -99,7 +95,7 @@ func (s *ttsSessionData) JoinVoice(res slashlib.InteractionResponse, guildID, ch
 	ttsSession.Success(res, "ハロー!")
 }
 
-func (s *ttsSessionData) LeaveVoice(res slashlib.InteractionResponse) {
+func (s *ttsSessionData) LeaveVoice(res *disgord.InteractionResponse) {
 	s.Speech("BOT", "さいなら")
 	ttsSession.Success(res, "グッバイ!")
 	time.Sleep(1 * time.Second)
@@ -133,7 +129,7 @@ func (s *ttsSessionData) AutoLeave(discord *discordgo.Session, isJoin bool, user
 		}
 		if isJoin {
 			s.Speech("BOT", fmt.Sprintf("%s join the voice", userName))
-		} else { // 今 VCchannelIDがない
+		} else {
 			s.Speech("BOT", fmt.Sprintf("%s left the voice", userName))
 		}
 	}
@@ -141,7 +137,7 @@ func (s *ttsSessionData) AutoLeave(discord *discordgo.Session, isJoin bool, user
 
 func (session *ttsSessionData) Speech(userID string, text string) {
 	if session.CheckDic() {
-		data, _ := os.Open("./dic/" + session.guildID + ".txt")
+		data, _ := os.Open(filepath.Join(".", "dic", session.guildID+".txt"))
 		defer data.Close()
 
 		scanner := bufio.NewScanner(data)
@@ -163,7 +159,7 @@ func (session *ttsSessionData) Speech(userID string, text string) {
 	text = regexp.MustCompile(`>>> `).ReplaceAllString(text, "")                  // quote
 	text = regexp.MustCompile("```.*```").ReplaceAllString(text, "こーどぶろっく すーきっぷ") // codeblock
 	// Word Decoration 2
-	text = regexp.MustCompile(`~~(.+)~~`).ReplaceAllString(text, "$1")     // strikethrough
+	text = regexp.MustCompile(`~~(.+)~~`).ReplaceAllString(text, "$1")     // strike through
 	text = regexp.MustCompile(`__(.+)__`).ReplaceAllString(text, "$1")     // underlined
 	text = regexp.MustCompile(`\*\*(.+)\*\*`).ReplaceAllString(text, "$1") // bold
 	// Word Decoration 1
@@ -197,14 +193,13 @@ func (session *ttsSessionData) Speech(userID string, text string) {
 	defer session.lead.Unlock()
 
 	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), settingData.Lang)
-	var end chan bool
-	err = discordbot.PlayAudioFile(settingData.Speed, settingData.Pitch, session.vc, voiceURL, false, end)
+	err = disgord.PlayAudioFile(session.vc, voiceURL, settingData.Speed, settingData.Pitch, 1, false, make(<-chan bool))
 	utils.PrintError("Failed play Audio \""+read+"\" ", err)
 }
 
-func (s *ttsSessionData) Dictionary(res slashlib.InteractionResponse, i slashlib.InteractionStruct) {
+func (s *ttsSessionData) Dictionary(res *disgord.InteractionResponse, i disgord.InteractionData) {
 	//ファイルの指定
-	fileName := "./dic/" + s.guildID + ".txt"
+	fileName := filepath.Join(".", "dic", s.guildID+".txt")
 	//dicがあるか確認
 	if !s.CheckDic() {
 		ttsSession.Failed(res, "辞書の読み込みに失敗しました")
@@ -231,7 +226,7 @@ func (s *ttsSessionData) Dictionary(res slashlib.InteractionResponse, i slashlib
 	dic = dic + from + "," + to + "\n"
 
 	//書き込み
-	err := files.WriteFileFlash(fileName, []byte(dic))
+	err := os.WriteFile(fileName, []byte(dic), 0755)
 	if !utils.PrintError("Config Update Failed", err) {
 		ttsSession.Failed(res, "辞書の書き込みに失敗しました")
 		return
@@ -240,7 +235,7 @@ func (s *ttsSessionData) Dictionary(res slashlib.InteractionResponse, i slashlib
 	ttsSession.Success(res, "辞書を保存しました\n\""+from+"\" => \""+to+"\"")
 }
 
-func (s *ttsSessionData) ToggleUpdate(res slashlib.InteractionResponse) {
+func (s *ttsSessionData) ToggleUpdate(res *disgord.InteractionResponse) {
 	s.updateInfo = !s.updateInfo
 
 	ttsSession.Success(res, fmt.Sprintf("ボイスチャットの参加/退出の通知を %t に変更しました", s.updateInfo))
@@ -248,21 +243,24 @@ func (s *ttsSessionData) ToggleUpdate(res slashlib.InteractionResponse) {
 
 func (s *ttsSessionData) CheckDic() (ok bool) {
 	// dic.txtがあるか
-	if files.IsAccess("./dic/" + s.guildID + ".txt") {
+	_, err := os.Stat(filepath.Join(".", "dic", s.guildID+".txt"))
+	if os.IsExist(err) {
 		return true
 	}
 
 	//フォルダがあるか確認
-	if !files.IsAccess("./dic") {
+	_, err = os.Stat(filepath.Join(".", "dic"))
+	if os.IsNotExist(err) {
 		//フォルダがなかったら作成
-		err := files.Create("./dic", true)
+		err := os.Mkdir(filepath.Join(".", "dic"), 0755)
 		if utils.PrintError("Failed Create Dic", err) {
 			return false
 		}
 	}
 
 	//ファイル作成
-	err := files.WriteFileFlash("./dic/"+s.guildID+".txt", []byte{})
+	f, err := os.Create(filepath.Join(".", "dic", s.guildID+".txt"))
+	f.Close()
 	return !utils.PrintError("Failed create dictionary", err)
 }
 
@@ -277,10 +275,13 @@ func (s *ttsSessions) Config(userID string, newConfig UserSetting) (result UserS
 	}
 
 	//ファイルパスの指定
-	fileName := "./user_config.json"
+	fileName := filepath.Join(".", "user_config.json")
 
-	if !files.IsAccess(fileName) {
-		if files.Create(fileName, false) != nil {
+	_, err = os.Stat(fileName)
+	if os.IsNotExist(err) {
+		f, err := os.Create(fileName)
+		f.Close()
+		if err != nil {
 			return dummy, fmt.Errorf("failed Create Config File")
 		}
 	}
@@ -332,15 +333,15 @@ func (s *ttsSessions) Config(userID string, newConfig UserSetting) (result UserS
 			return dummy, fmt.Errorf("failed Marshal UserConfig")
 		}
 		//書き込み
-		files.WriteFileFlash(fileName, bytes)
-		log.Println("User userConfig Writed")
+		os.WriteFile(fileName, bytes, 0655)
+		log.Println("User userConfig Wrote")
 	}
 	return
 }
 
-func (s *ttsSessions) UpdateConfig(res slashlib.InteractionResponse, i slashlib.InteractionStruct) {
+func (s *ttsSessions) UpdateConfig(res *disgord.InteractionResponse, i disgord.InteractionData) {
 	// 読み込み
-	result, err := ttsSession.Config(i.UserID, UserSetting{})
+	result, err := ttsSession.Config(i.User.ID, UserSetting{})
 	if utils.PrintError("Failed Get Config", err) {
 		ttsSession.Failed(res, "読み上げ設定を読み込めませんでした")
 		return
@@ -362,14 +363,14 @@ func (s *ttsSessions) UpdateConfig(res slashlib.InteractionResponse, i slashlib.
 		}
 	}
 
-	_, err = ttsSession.Config(i.UserID, result)
+	_, err = ttsSession.Config(i.User.ID, result)
 	if utils.PrintError("Failed Write Config", err) {
 		ttsSession.Failed(res, "保存に失敗しました")
 	}
 	ttsSession.Success(res, "読み上げ設定を変更しました")
 }
 
-func (s *ttsSessions) Failed(res slashlib.InteractionResponse, description string) {
+func (s *ttsSessions) Failed(res *disgord.InteractionResponse, description string) {
 	_, err := res.Follow(&discordgo.WebhookParams{
 		Embeds: []*discordgo.MessageEmbed{
 			{
@@ -382,7 +383,7 @@ func (s *ttsSessions) Failed(res slashlib.InteractionResponse, description strin
 	utils.PrintError("Failed send response", err)
 }
 
-func (s *ttsSessions) Success(res slashlib.InteractionResponse, description string) {
+func (s *ttsSessions) Success(res *disgord.InteractionResponse, description string) {
 	_, err := res.Follow(&discordgo.WebhookParams{
 		Embeds: []*discordgo.MessageEmbed{
 			{

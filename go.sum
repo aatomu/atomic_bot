@@ -1,7 +1,7 @@
-github.com/aatomu/atomicgo v0.0.0-20230902080359-58e184602ae2 h1:kqwJfBaj1lSq6ZWoy7je+T4zM+/rwOLHE63xSZcGLgU=
-github.com/aatomu/atomicgo v0.0.0-20230902080359-58e184602ae2/go.mod h1:1B5llhTi34KrNWQBRa2VwaPUPFoBGa8DF+dCCP30Qf4=
-github.com/aatomu/slashlib v1.0.0 h1:wLemOx0Age8mQOew2DdS6KhvI8/nfo108W5w0F3NgUc=
-github.com/aatomu/slashlib v1.0.0/go.mod h1:afdJjs/LI+murBxpiR2xi83MBtYTJwTEC1L9iGpRBqA=
+github.com/aatomu/aatomlib/disgord v0.0.0-20240208121835-8e57ce190452 h1:/9dqwqH8tsIIwvpPTxbIdpFuLcGFsR4bPd65ZVcFVyk=
+github.com/aatomu/aatomlib/disgord v0.0.0-20240208121835-8e57ce190452/go.mod h1:nh6A9ENB5qDyQs/gKTFzJx9Hy5gseoKTC6fUcyyIV1c=
+github.com/aatomu/aatomlib/utils v0.0.0-20240208121835-8e57ce190452 h1:WJ24KZCxOJEVUOmVg+ExPLDmg6mGaK2P3ek5YNJOXrk=
+github.com/aatomu/aatomlib/utils v0.0.0-20240208121835-8e57ce190452/go.mod h1:EwktuwFcrFR3PZsKYorV9/awjhmgZM6ar2fih1vgfK8=
 github.com/bwmarrin/discordgo v0.27.1 h1:ib9AIc/dom1E/fSIulrBwnez0CToJE113ZGt4HoliGY=
 github.com/bwmarrin/discordgo v0.27.1/go.mod h1:NJZpH+1AfhIcyQsPeuBKsUtYrRnjkyu0kIVMCHkZtRY=
 github.com/gorilla/websocket v1.4.2/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=

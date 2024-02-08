@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aatomu/slashlib"
+	"github.com/aatomu/aatomlib/disgord"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -27,16 +27,16 @@ type blackjackSession struct {
 	guildID     string
 	channelID   string
 	messageID   string
-	fase        blackjackFase
+	phase       blackjackPhase
 	acceptUsers map[string]bool
 	users       map[string]*blackjackUser
 	cards       []string
 }
 
-type blackjackFase int
+type blackjackPhase int
 
 const (
-	Wait blackjackFase = iota
+	Wait blackjackPhase = iota
 	BetTime
 	HitTime
 	Ended
@@ -84,9 +84,9 @@ func (s *BlackjackSessions) Delete(guildID string) {
 
 func (s *BlackjackSessions) NewShuffledCards() (cards []string) {
 	marks := []string{"♥", "♠", "♦", "♣"}
-	nums := []string{"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"}
+	numbers := []string{"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"}
 	for _, mark := range marks {
-		for _, num := range nums {
+		for _, num := range numbers {
 			cards = append(cards, mark+num)
 		}
 	}
@@ -114,7 +114,7 @@ func (s *blackjackSession) UpdateMessage(discord *discordgo.Session) {
 		}
 		// Make Text
 		playerInfo := fmt.Sprintf("%s:\n  Coin:% 4d  Bet:% 4d\n  Card:", name, state.coin, state.bet)
-		if name == Master && s.fase == HitTime {
+		if name == Master && s.phase == HitTime {
 			playerInfo += fmt.Sprintf("??,%s(% 1d)\n", state.cards[1], state.CardNum(1))
 		} else {
 			num := state.CardNum(0)
@@ -167,62 +167,51 @@ func (s *blackjackSession) AcceptCount(userName string) (current int, required i
 }
 
 func (u *blackjackUser) CardNum(offset int) (num int) {
-	nums := map[string]int{"A": 11, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "10": 10, "J": 10, "Q": 10, "K": 10}
-	Acard := 0
+	numbers := map[string]int{"A": 11, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "10": 10, "J": 10, "Q": 10, "K": 10}
+	ACardCount := 0
 	for _, card := range u.cards[offset:] {
 		card = strings.Join(strings.Split(card, "")[1:], "")
-		num += nums[card]
+		num += numbers[card]
 		if card == "A" {
-			Acard++
+			ACardCount++
 		}
 	}
 
-	for num > 21 && Acard > 0 {
+	for num > 21 && ACardCount > 0 {
 		num -= 10
-		Acard--
+		ACardCount--
 	}
 	return
 }
 
-func (s *blackjackSession) NewGame(res slashlib.InteractionResponse, guildID, channelID string) {
+func (s *blackjackSession) NewGame(res *disgord.InteractionResponse, discord *discordgo.Session, guildID, channelID string) {
 	go res.Reply(nil)
-	c, _ := res.Discord.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
-		Components: new(slashlib.Component).
-			AddLine().
-			AddButton(discordgo.Button{
-				Label:    "参加",
-				Style:    discordgo.PrimaryButton,
-				CustomID: "blackjack-game-join",
-			}).
-			AddButton(discordgo.Button{
-				Label:    "退出",
-				Style:    discordgo.PrimaryButton,
-				CustomID: "blackjack-game-leave",
-			}).
-			AddButton(discordgo.Button{
-				Label:    "ゲームを開始",
-				Style:    discordgo.SuccessButton,
-				CustomID: "blackjack-game-start",
-				Emoji: discordgo.ComponentEmoji{
-					Name: "",
+	c, _ := discord.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{Label: "参加", Style: discordgo.PrimaryButton, CustomID: "blackjack-game-join"},
+					discordgo.Button{Label: "退出", Style: discordgo.PrimaryButton, CustomID: "blackjack-game-leave"},
+					discordgo.Button{Label: "ゲームを開始", Style: discordgo.SuccessButton, CustomID: "blackjack-game-start", Emoji: discordgo.ComponentEmoji{Name: ""}},
 				},
-			}).
-			Parse(),
+			},
+		},
 	})
+
 	session := &blackjackSession{
 		guildID:     guildID,
 		channelID:   c.ChannelID,
 		messageID:   c.ID,
-		fase:        Wait,
+		phase:       Wait,
 		acceptUsers: map[string]bool{},
 		users:       map[string]*blackjackUser{},
 		cards:       blackjack.NewShuffledCards(),
 	}
 	blackjack.Add(session)
-	session.UpdateMessage(res.Discord)
+	session.UpdateMessage(discord)
 }
 
-func (s *blackjackSession) GameJoin(res slashlib.InteractionResponse, userName string) {
+func (s *blackjackSession) GameJoin(res *disgord.InteractionResponse, discord *discordgo.Session, userName string) {
 	if _, ok := s.users[userName]; ok {
 		s.Failed(res, "Blackjack にすでに参加済みです")
 		return
@@ -236,10 +225,10 @@ func (s *blackjackSession) GameJoin(res slashlib.InteractionResponse, userName s
 	}
 
 	go res.Reply(nil)
-	s.UpdateMessage(res.Discord)
+	s.UpdateMessage(discord)
 }
 
-func (s *blackjackSession) GameLeave(res slashlib.InteractionResponse, userName string) {
+func (s *blackjackSession) GameLeave(res *disgord.InteractionResponse, discord *discordgo.Session, userName string) {
 	if _, ok := s.users[userName]; !ok {
 		s.Failed(res, "Blackjack に参加していません")
 		return
@@ -249,10 +238,10 @@ func (s *blackjackSession) GameLeave(res slashlib.InteractionResponse, userName 
 	delete(s.acceptUsers, userName)
 
 	go res.Reply(nil)
-	s.UpdateMessage(res.Discord)
+	s.UpdateMessage(discord)
 }
 
-func (s *blackjackSession) GameStart(res slashlib.InteractionResponse, userName string) {
+func (s *blackjackSession) GameStart(res *disgord.InteractionResponse, discord *discordgo.Session, userName string) {
 	if _, ok := s.users[userName]; !ok {
 		s.Failed(res, "Blackjack に参加していません")
 		return
@@ -261,7 +250,7 @@ func (s *blackjackSession) GameStart(res slashlib.InteractionResponse, userName 
 	current, required := s.AcceptCount(userName)
 	if current < required {
 		text := fmt.Sprintf("Blackjack の開始まで `% 2d/% 2d`", current, required)
-		go res.Discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		go discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
 			Channel: s.channelID,
 			ID:      s.messageID,
 			Content: &text,
@@ -270,40 +259,34 @@ func (s *blackjackSession) GameStart(res slashlib.InteractionResponse, userName 
 		return
 	}
 
-	s.fase = BetTime
+	s.phase = BetTime
 	s.acceptUsers = map[string]bool{}
 	go res.Reply(nil)
 
 	text := "Blackjack を開始します"
-	go res.Discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
+	go discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: s.channelID,
 		ID:      s.messageID,
 		Content: &text,
-		Components: new(slashlib.Component).
-			AddLine().
-			AddButton(discordgo.Button{
-				Label:    "ベット",
-				Style:    discordgo.SuccessButton,
-				CustomID: "blackjack-bed-call",
-			}).
-			AddButton(discordgo.Button{
-				Label:    "ベットを締める",
-				Style:    discordgo.DangerButton,
-				CustomID: "blackjack-bed-close",
-			}).
-			Parse(),
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{Label: "ベット", Style: discordgo.SuccessButton, CustomID: "blackjack-bed-call"},
+					discordgo.Button{Label: "ベットを締める", Style: discordgo.DangerButton, CustomID: "blackjack-bed-close"},
+				},
+			},
+		},
 	})
 }
 
-func (s *blackjackSession) BetCall(res slashlib.InteractionResponse, userName string) {
+func (s *blackjackSession) BetCall(res *disgord.InteractionResponse, userName string) {
 	user, ok := s.users[userName]
 	if !ok {
 		s.Failed(res, "Blackjack に参加していません")
 		return
 	}
 
-	go res.Window("ベッド額を指定", "blackjack-bed-input", new(slashlib.Component).
-		AddLine().AddInput(discordgo.TextInput{
+	go res.Window("ベッド額を指定", "blackjack-bed-input", disgord.ComponentNewLine().Input(discordgo.TextInput{
 		Label:    fmt.Sprintf("ベッド額(Max:%d)", user.coin),
 		Style:    discordgo.TextInputShort,
 		Required: true,
@@ -311,7 +294,7 @@ func (s *blackjackSession) BetCall(res slashlib.InteractionResponse, userName st
 	}))
 }
 
-func (s *blackjackSession) BetClose(res slashlib.InteractionResponse, userName string) {
+func (s *blackjackSession) BetClose(res *disgord.InteractionResponse, discord *discordgo.Session, userName string) {
 	if _, ok := s.users[userName]; !ok {
 		s.Failed(res, "Blackjack に参加していません")
 		return
@@ -320,7 +303,7 @@ func (s *blackjackSession) BetClose(res slashlib.InteractionResponse, userName s
 	current, required := s.AcceptCount(userName)
 	if current < required {
 		text := fmt.Sprintf("ベット を締めるまで `% 2d/% 2d`", current, required)
-		go res.Discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		go discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
 			Channel: s.channelID,
 			ID:      s.messageID,
 			Content: &text,
@@ -329,7 +312,7 @@ func (s *blackjackSession) BetClose(res slashlib.InteractionResponse, userName s
 		return
 	}
 
-	s.fase = HitTime
+	s.phase = HitTime
 	s.acceptUsers = map[string]bool{}
 	go res.Reply(nil)
 
@@ -364,29 +347,20 @@ func (s *blackjackSession) BetClose(res slashlib.InteractionResponse, userName s
 	}
 
 	text := "ベット を締めました"
-	go res.Discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
+	go discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: s.channelID,
 		ID:      s.messageID,
 		Content: &text,
-		Components: new(slashlib.Component).
-			AddLine().
-			AddButton(discordgo.Button{
-				Label:    "ヒット",
-				Style:    discordgo.SuccessButton,
-				CustomID: "blackjack-card-hit",
-			}).
-			AddButton(discordgo.Button{
-				Label:    "カードを確定",
-				Style:    discordgo.DangerButton,
-				CustomID: "blackjack-card-finish",
-			}).
-			Parse(),
+		Components: disgord.ComponentParse(disgord.ComponentNewLine().
+			Button(discordgo.Button{Label: "ヒット", Style: discordgo.SuccessButton, CustomID: "blackjack-card-hit"}).
+			Button(discordgo.Button{Label: "カードを確定", Style: discordgo.DangerButton, CustomID: "blackjack-card-finish"}),
+		),
 	})
 
-	s.UpdateMessage(res.Discord)
+	s.UpdateMessage(discord)
 }
 
-func (s *blackjackSession) UpdateBetValue(res slashlib.InteractionResponse, userName string, data discordgo.ModalSubmitInteractionData) {
+func (s *blackjackSession) UpdateBetValue(res *disgord.InteractionResponse, discord *discordgo.Session, userName string, data discordgo.ModalSubmitInteractionData) {
 	input := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput)
 	n, err := strconv.Atoi(input.Value)
 	if err != nil {
@@ -403,10 +377,10 @@ func (s *blackjackSession) UpdateBetValue(res slashlib.InteractionResponse, user
 
 	user.bet = n
 	go res.Reply(nil)
-	s.UpdateMessage(res.Discord)
+	s.UpdateMessage(discord)
 }
 
-func (s *blackjackSession) CardHit(res slashlib.InteractionResponse, userName string) {
+func (s *blackjackSession) CardHit(res *disgord.InteractionResponse, discord *discordgo.Session, userName string) {
 	user, ok := s.users[userName]
 	if !ok {
 		s.Failed(res, "Blackjack に参加していません")
@@ -440,10 +414,10 @@ func (s *blackjackSession) CardHit(res slashlib.InteractionResponse, userName st
 		user.isBurst = true
 	}
 
-	s.UpdateMessage(res.Discord)
+	s.UpdateMessage(discord)
 }
 
-func (s *blackjackSession) CardFinish(res slashlib.InteractionResponse, userName string) {
+func (s *blackjackSession) CardFinish(res *disgord.InteractionResponse, discord *discordgo.Session, userName string) {
 	if _, ok := s.users[userName]; !ok {
 		s.Failed(res, "Blackjack に参加していません")
 		return
@@ -452,7 +426,7 @@ func (s *blackjackSession) CardFinish(res slashlib.InteractionResponse, userName
 	current, required := s.AcceptCount(userName)
 	if current < required {
 		text := fmt.Sprintf("カード を確定させるまで `% 2d/% 2d`", current, required)
-		go res.Discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		go discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
 			Channel: s.channelID,
 			ID:      s.messageID,
 			Content: &text,
@@ -462,7 +436,7 @@ func (s *blackjackSession) CardFinish(res slashlib.InteractionResponse, userName
 	}
 
 	go res.Reply(nil)
-	s.fase = Ended
+	s.phase = Ended
 	s.acceptUsers = map[string]bool{}
 
 	master := s.users[Master]
@@ -504,28 +478,20 @@ func (s *blackjackSession) CardFinish(res slashlib.InteractionResponse, userName
 	}
 
 	text := "カード を確定しました"
-	go res.Discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
+	go discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: s.channelID,
 		ID:      s.messageID,
 		Content: &text,
-		Components: new(slashlib.Component).
-			AddLine().
-			AddButton(discordgo.Button{
-				Label:    "ゲームを続ける",
-				Style:    discordgo.PrimaryButton,
-				CustomID: "blackjack-game-continue",
-			}).
-			AddButton(discordgo.Button{
-				Label:    "ゲームを終了",
-				Style:    discordgo.DangerButton,
-				CustomID: "blackjack-game-finish",
-			}).
-			Parse(),
+		Components: disgord.ComponentParse(
+			disgord.ComponentNewLine().
+				Button(discordgo.Button{Label: "ゲームを続ける", Style: discordgo.PrimaryButton, CustomID: "blackjack-game-continue"}).
+				Button(discordgo.Button{Label: "ゲームを終了", Style: discordgo.DangerButton, CustomID: "blackjack-game-finish"}),
+		),
 	})
-	s.UpdateMessage(res.Discord)
+	s.UpdateMessage(discord)
 }
 
-func (s *blackjackSession) GameContinue(res slashlib.InteractionResponse, userName string) {
+func (s *blackjackSession) GameContinue(res *disgord.InteractionResponse, discord *discordgo.Session, userName string) {
 	if _, ok := s.users[userName]; !ok {
 		s.Failed(res, "Blackjack に参加していません")
 		return
@@ -553,7 +519,7 @@ func (s *blackjackSession) GameContinue(res slashlib.InteractionResponse, userNa
 		guildID:     guildID,
 		channelID:   channelID,
 		messageID:   messageID,
-		fase:        Wait,
+		phase:       Wait,
 		acceptUsers: map[string]bool{},
 		users:       newUsers,
 		cards:       blackjack.NewShuffledCards(),
@@ -562,33 +528,21 @@ func (s *blackjackSession) GameContinue(res slashlib.InteractionResponse, userNa
 	blackjack.Add(s)
 
 	text := "ゲーム を続けます"
-	res.Discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
+	discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: s.channelID,
 		ID:      s.messageID,
 		Content: &text,
-		Components: new(slashlib.Component).
-			AddLine().
-			AddButton(discordgo.Button{
-				Label:    "参加",
-				Style:    discordgo.PrimaryButton,
-				CustomID: "blackjack-game-join",
-			}).
-			AddButton(discordgo.Button{
-				Label:    "退出",
-				Style:    discordgo.PrimaryButton,
-				CustomID: "blackjack-game-leave",
-			}).
-			AddButton(discordgo.Button{
-				Label:    "ゲームを開始",
-				Style:    discordgo.SuccessButton,
-				CustomID: "blackjack-game-start",
-			}).
-			Parse(),
+		Components: disgord.ComponentParse(
+			disgord.ComponentNewLine().
+				Button(discordgo.Button{Label: "参加", Style: discordgo.PrimaryButton, CustomID: "blackjack-game-join"}).
+				Button(discordgo.Button{Label: "退出", Style: discordgo.PrimaryButton, CustomID: "blackjack-game-leave"}).
+				Button(discordgo.Button{Label: "ゲームを開始", Style: discordgo.SuccessButton, CustomID: "blackjack-game-start"}),
+		),
 	})
-	s.UpdateMessage(res.Discord)
+	s.UpdateMessage(discord)
 }
 
-func (s *blackjackSession) GameFinish(res slashlib.InteractionResponse, userName string) {
+func (s *blackjackSession) GameFinish(res *disgord.InteractionResponse, discord *discordgo.Session, userName string) {
 	if _, ok := s.users[userName]; !ok {
 		s.Failed(res, "Blackjack に参加していません")
 		return
@@ -597,7 +551,7 @@ func (s *blackjackSession) GameFinish(res slashlib.InteractionResponse, userName
 	current, required := s.AcceptCount(userName)
 	if current < required {
 		text := fmt.Sprintf("ゲーム を終了させるまで `% 2d/% 2d`", current, required)
-		go res.Discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		go discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
 			Channel: s.channelID,
 			ID:      s.messageID,
 			Content: &text,
@@ -607,22 +561,18 @@ func (s *blackjackSession) GameFinish(res slashlib.InteractionResponse, userName
 	}
 
 	text := "ゲーム を終了しました"
-	go res.Discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
+	go discord.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: s.channelID,
 		ID:      s.messageID,
 		Content: &text,
-		Components: new(slashlib.Component).
-			AddLine().
-			AddButton(discordgo.Button{
-				Label:    "*",
-				Style:    discordgo.PrimaryButton,
-				CustomID: "_",
-			}).
-			Parse(),
+		Components: disgord.ComponentParse(
+			disgord.ComponentNewLine().
+				Button(discordgo.Button{Label: "*", Style: discordgo.PrimaryButton, CustomID: "_"}),
+		),
 	})
 }
 
-func (s *blackjackSession) Failed(res slashlib.InteractionResponse, description string) {
+func (s *blackjackSession) Failed(res *disgord.InteractionResponse, description string) {
 	res.Reply(&discordgo.InteractionResponseData{
 		Flags: discordgo.MessageFlagsEphemeral,
 		Embeds: []*discordgo.MessageEmbed{
