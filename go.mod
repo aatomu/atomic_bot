@@ -3,8 +3,8 @@ module github.com/aatomu/atomic_bot
 go 1.20
 
 require (
-	github.com/aatomu/aatomlib/disgord v0.0.0-20240208121835-8e57ce190452
-	github.com/aatomu/aatomlib/utils v0.0.0-20240208121835-8e57ce190452
+	github.com/aatomu/aatomlib/disgord v0.0.0-20240208154810-0c2dc4f08e25
+	github.com/aatomu/aatomlib/utils v0.0.0-20240208154453-9335f634603c
 	github.com/bwmarrin/discordgo v0.27.1
 	golang.org/x/text v0.12.0
 )

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"log"
 	"strings"
 
 	"github.com/aatomu/aatomlib/disgord"
@@ -26,6 +25,7 @@ var (
 		Pitch: 1.1,
 	}
 	embedColor = 0x1E90FF
+	logger     = utils.LoggerHandler{Level: utils.Warn}
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 	// Initialize bot
 	discord, err := discordgo.New("Bot " + *token)
 	if err != nil {
-		fmt.Println("Failed Bot Init", err)
+		logger.Error("Failed bot initialize", err)
 		return
 	}
 
@@ -63,6 +63,7 @@ func main() {
 }
 
 func onReady(discord *discordgo.Session, r *discordgo.Ready) {
+	logger.Info("Discord bot on ready")
 	clientID = discord.State.User.ID
 
 	// Add slash command
@@ -124,7 +125,6 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 			Options: []*discordgo.ApplicationCommandOption{
 				{Type: discordgo.ApplicationCommandOptionString, Name: "title", Description: "投票のタイトル", Required: true},
 				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_1", Description: "選択肢 1", Required: true},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_1", Description: "選択肢 1", Required: true},
 				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_2", Description: "選択肢 2", Required: true},
 				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_3", Description: "選択肢 3", Required: false},
 				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_4", Description: "選択肢 4", Required: false},
@@ -144,7 +144,7 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 			Options: []*discordgo.ApplicationCommandOption{
 				{Type: discordgo.ApplicationCommandOptionString, Name: "text", Description: "メッセージ内容", Required: true},
 				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_1", Description: "リアクション 1", Required: true},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_2", Description: "リアクション 2", Required: true},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_2", Description: "リアクション 2", Required: false},
 				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_3", Description: "リアクション 3", Required: false},
 				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_4", Description: "リアクション 4", Required: false},
 				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_5", Description: "リアクション 5", Required: false},
@@ -163,23 +163,29 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	// bot status update
 	joinedGuilds := len(discord.State.Guilds)
 	joinedVC := len(ttsSession.guilds)
-	discord.UpdateStatusComplex(discordgo.UpdateStatusData{
+	err := discord.UpdateStatusComplex(discordgo.UpdateStatusData{
 		Activities: []*discordgo.Activity{
 			{
 				Name:    "i'm a bot",
 				Type:    discordgo.ActivityTypeCustom,
 				Details: "Working for everyone",
-				State:   "`/join` `/poll` Talking for",
+				State:   "`/join` `/poll` Talking for everyone",
 				Party: discordgo.Party{
-					ID:   "-1",
+					ID:   "1000",
 					Size: []int{joinedVC, joinedGuilds},
 				},
 			},
 		},
 	})
+	if err != nil {
+		logger.Error("failed update status", err)
+	}
 
 	mData := disgord.MessageParse(discord, m.Message)
-	log.Println(mData.FormatText)
+	if mData.Guild.Name == "Bot Repo" {
+		return
+	}
+	logger.Info(mData.FormatText)
 
 	// Update voice session
 	go func() {
@@ -216,7 +222,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			// Session delete
 			if utils.RegMatch(mData.Message.Content, "[0-9]$") {
 				guildID := utils.RegReplace(mData.Message.Content, "", `^!debug\s*`)
-				log.Println("Deleting SessionItem : " + guildID)
+				logger.Info("Deleting SessionItem : " + guildID)
 				ttsSession.Delete(guildID)
 				return
 			}
@@ -277,6 +283,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCreate) {
 	// 表示&処理しやすく
 	iData := disgord.InteractionParse(discord, i.Interaction)
+	logger.Info(iData.FormatText)
 
 	// response用データ
 	res := disgord.NewInteractionResponse(discord, i.Interaction)
@@ -287,19 +294,19 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 	case "join":
 		res.Thinking(false)
 
-		session := ttsSession.Get(i.GuildID)
+		session := ttsSession.Get(iData.GuildID)
 		if session.IsJoined() {
 			ttsSession.Failed(res, "VoiceChat にすでに接続しています")
 			return
 		}
 
-		session.JoinVoice(res, discord, i.GuildID, i.ChannelID, i.User.ID)
+		session.JoinVoice(res, discord, iData.GuildID, iData.ChannelID, iData.User.ID)
 		return
 
 	case "leave":
 		res.Thinking(false)
 
-		session := ttsSession.Get(i.GuildID)
+		session := ttsSession.Get(iData.GuildID)
 		if !session.IsJoined() {
 			ttsSession.Failed(res, "VoiceChat に接続していません")
 			return
@@ -318,7 +325,7 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		res.Follow(&discordgo.WebhookParams{
 			Embeds: []*discordgo.MessageEmbed{
 				{
-					Title:       fmt.Sprintf("@%s's Speech Config", i.User.Username),
+					Title:       fmt.Sprintf("@%s's Speech Config", iData.User.Username),
 					Description: fmt.Sprintf("```\nLang  : %4s\nSpeed : %3.2f\nPitch : %3.2f```", result.Lang, result.Speed, result.Pitch),
 				},
 			},
@@ -334,7 +341,7 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 	case "dic":
 		res.Thinking(false)
 
-		session := ttsSession.Get(i.GuildID)
+		session := ttsSession.Get(iData.GuildID)
 		if !session.IsJoined() {
 			ttsSession.Failed(res, "VoiceChat に接続していません")
 			return
@@ -346,7 +353,7 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 	case "update":
 		res.Thinking(false)
 
-		session := ttsSession.Get(i.GuildID)
+		session := ttsSession.Get(iData.GuildID)
 		if !session.IsJoined() {
 			ttsSession.Failed(res, "VoiceChat に接続していません")
 			return
@@ -407,7 +414,7 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 			reactions = append(reactions, v.StringValue())
 		}
 
-		m, err := discord.ChannelMessageSend(i.ChannelID, text)
+		m, err := discord.ChannelMessageSend(iData.ChannelID, text)
 		if err != nil {
 			return
 		}
@@ -417,18 +424,18 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		}
 	case "blackjack":
 		// Session Check
-		session := blackjack.Get(i.GuildID)
+		session := blackjack.Get(iData.GuildID)
 		if session != nil {
 			session.Failed(res, "すでに blackjackが存在します")
 		}
 
-		session.NewGame(res, discord, i.GuildID, i.ChannelID)
+		session.NewGame(res, discord, iData.GuildID, iData.ChannelID)
 		return
 	}
 
 	switch iData.Component.CustomID {
 	case "blackjack-game-join":
-		session := blackjack.Get(i.GuildID)
+		session := blackjack.Get(iData.GuildID)
 		if session == nil {
 			session.Failed(res, "現在 blackjack が行われていません")
 			return
@@ -438,10 +445,10 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 			return
 		}
 
-		session.GameJoin(res, discord, i.User.Username)
+		session.GameJoin(res, discord, iData.User.Username)
 
 	case "blackjack-game-leave":
-		session := blackjack.Get(i.GuildID)
+		session := blackjack.Get(iData.GuildID)
 		if session == nil {
 			session.Failed(res, "現在 blackjack が行われていません")
 			return
@@ -456,7 +463,7 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		return
 
 	case "blackjack-game-start":
-		session := blackjack.Get(i.GuildID)
+		session := blackjack.Get(iData.GuildID)
 		if session == nil {
 			session.Failed(res, "現在 blackjack が行われていません")
 			return
@@ -471,7 +478,7 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		return
 
 	case "blackjack-bed-call":
-		session := blackjack.Get(i.GuildID)
+		session := blackjack.Get(iData.GuildID)
 		if session == nil {
 			session.Failed(res, "現在 blackjack が行われていません")
 			return
@@ -486,7 +493,7 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		return
 
 	case "blackjack-bed-close":
-		session := blackjack.Get(i.GuildID)
+		session := blackjack.Get(iData.GuildID)
 		if session == nil {
 			session.Failed(res, "現在 blackjack が行われていません")
 			return
@@ -501,7 +508,7 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		return
 
 	case "blackjack-card-hit":
-		session := blackjack.Get(i.GuildID)
+		session := blackjack.Get(iData.GuildID)
 		if session == nil {
 			session.Failed(res, "現在 blackjack が行われていません")
 			return
@@ -516,7 +523,7 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		return
 
 	case "blackjack-card-finish":
-		session := blackjack.Get(i.GuildID)
+		session := blackjack.Get(iData.GuildID)
 		if session == nil {
 			session.Failed(res, "現在 blackjack が行われていません")
 			return
@@ -531,7 +538,7 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		return
 
 	case "blackjack-game-continue":
-		session := blackjack.Get(i.GuildID)
+		session := blackjack.Get(iData.GuildID)
 		if session == nil {
 			session.Failed(res, "現在 blackjack が行われていません")
 			return
@@ -546,7 +553,7 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		return
 
 	case "blackjack-game-finish":
-		session := blackjack.Get(i.GuildID)
+		session := blackjack.Get(iData.GuildID)
 		if session == nil {
 			session.Failed(res, "現在 blackjack が行われていません")
 			return
@@ -558,13 +565,13 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		}
 
 		session.GameFinish(res, discord, i.User.Username)
-		blackjack.Delete(i.GuildID)
+		blackjack.Delete(iData.GuildID)
 		return
 	}
 
 	switch iData.Modal.CustomID {
 	case "blackjack-bed-input":
-		session := blackjack.Get(i.GuildID)
+		session := blackjack.Get(iData.GuildID)
 		if session == nil {
 			session.Failed(res, "現在 blackjack が行われていません")
 			return
@@ -585,7 +592,7 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 	if !vData.UpdateStatus.ChannelJoin {
 		return
 	}
-	log.Println(vData.FormatText)
+	logger.Info(vData.FormatText)
 
 	//セッションがあるか確認
 	session := ttsSession.Get(v.GuildID)

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -328,13 +327,12 @@ func (s *ttsSessions) Config(userID string, newConfig UserSetting) (result UserS
 		//最後に書き込むテキストを追加(Write==trueの時)
 		Users[userID] = result
 		bytes, err = json.MarshalIndent(&Users, "", "  ")
-		fmt.Println(string(bytes))
 		if err != nil {
 			return dummy, fmt.Errorf("failed Marshal UserConfig")
 		}
 		//書き込み
 		os.WriteFile(fileName, bytes, 0655)
-		log.Println("User userConfig Wrote")
+		logger.Info("User user config write")
 	}
 	return
 }
