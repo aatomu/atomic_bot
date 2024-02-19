@@ -175,10 +175,11 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	})
 
 	mData := disgord.MessageParse(discord, m.Message)
-	if mData.Guild.Name == "Bot Repo" {
-		return
+	if mData.Guild != nil {
+		if mData.Guild.Name != "Bot Repo" {
+			logger.Info(mData.FormatText)
+		}
 	}
-	logger.Info(mData.FormatText)
 
 	// Update voice session
 	go func() {
