@@ -174,13 +174,6 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		},
 	})
 
-	mData := disgord.MessageParse(discord, m.Message)
-	if mData.Guild != nil {
-		if mData.Guild.Name != "Bot Repo" {
-			logger.Info(mData.FormatText)
-		}
-	}
-
 	// Update voice session
 	go func() {
 		if isVcSessionUpdateLock {
@@ -203,6 +196,13 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 			}(i)
 		}
 	}()
+
+	mData := disgord.MessageParse(discord, m.Message)
+	if mData.Guild != nil {
+		if mData.Guild.Name != "Bot Repo" {
+			logger.Info(mData.FormatText)
+		}
+	}
 
 	// Check reading skip
 	if strings.HasPrefix(m.Content, ";") {
