@@ -17,7 +17,6 @@ var (
 	clientID              = ""
 	token                 = flag.String("token", "", "bot token")
 	ttsSession            ttsSessions
-	blackjack             BlackjackSessions
 	isVcSessionUpdateLock = false
 	dummy                 = UserSetting{
 		Lang:  "auto",
@@ -116,6 +115,12 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 			Description:              "参加,退出を通知します",
 			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
 		},
+		{
+			Type:                     discordgo.ChatApplicationCommand,
+			Name:                     "bot",
+			Description:              "ボットのメッセージを読み上げます",
+			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
+		},
 		// Others
 		{
 			Type:                     discordgo.ChatApplicationCommand,
@@ -149,12 +154,6 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_4", Description: "リアクション 4", Required: false},
 				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_5", Description: "リアクション 5", Required: false},
 			},
-		},
-		{
-			Type:                     discordgo.ChatApplicationCommand,
-			Name:                     "blackjack",
-			Description:              "blackjackを開始します",
-			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
 		},
 	})
 }
@@ -355,6 +354,17 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 
 		session.ToggleUpdate(res)
 		return
+	case "bot":
+		res.Thinking(false)
+
+		session := ttsSession.Get(iData.GuildID)
+		if !session.IsJoined() {
+			ttsSession.Failed(res, "VoiceChat に接続していません")
+			return
+		}
+
+		session.ToggleBot(res)
+		return
 
 	//その他
 	case "poll":
@@ -416,167 +426,6 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		for _, reaction := range reactions {
 			discord.MessageReactionAdd(m.ChannelID, m.ID, reaction)
 		}
-	case "blackjack":
-		// Session Check
-		session := blackjack.Get(iData.GuildID)
-		if session != nil {
-			session.Failed(res, "すでに blackjackが存在します")
-		}
-
-		session.NewGame(res, discord, iData.GuildID, iData.ChannelID)
-		return
-	}
-
-	switch iData.Component.CustomID {
-	case "blackjack-game-join":
-		session := blackjack.Get(iData.GuildID)
-		if session == nil {
-			session.Failed(res, "現在 blackjack が行われていません")
-			return
-		}
-		if session.phase != Wait {
-			res.Reply(nil)
-			return
-		}
-
-		session.GameJoin(res, discord, iData.User.Username)
-
-	case "blackjack-game-leave":
-		session := blackjack.Get(iData.GuildID)
-		if session == nil {
-			session.Failed(res, "現在 blackjack が行われていません")
-			return
-		}
-
-		if session.phase != Wait {
-			res.Reply(nil)
-			return
-		}
-
-		session.GameLeave(res, discord, i.User.Username)
-		return
-
-	case "blackjack-game-start":
-		session := blackjack.Get(iData.GuildID)
-		if session == nil {
-			session.Failed(res, "現在 blackjack が行われていません")
-			return
-		}
-
-		if session.phase != Wait {
-			res.Reply(nil)
-			return
-		}
-
-		session.GameStart(res, discord, i.User.Username)
-		return
-
-	case "blackjack-bed-call":
-		session := blackjack.Get(iData.GuildID)
-		if session == nil {
-			session.Failed(res, "現在 blackjack が行われていません")
-			return
-		}
-
-		if session.phase != BetTime {
-			res.Reply(nil)
-			return
-		}
-
-		session.BetCall(res, i.User.Username)
-		return
-
-	case "blackjack-bed-close":
-		session := blackjack.Get(iData.GuildID)
-		if session == nil {
-			session.Failed(res, "現在 blackjack が行われていません")
-			return
-		}
-
-		if session.phase != BetTime {
-			res.Reply(nil)
-			return
-		}
-
-		session.BetClose(res, discord, i.User.Username)
-		return
-
-	case "blackjack-card-hit":
-		session := blackjack.Get(iData.GuildID)
-		if session == nil {
-			session.Failed(res, "現在 blackjack が行われていません")
-			return
-		}
-
-		if session.phase != HitTime {
-			res.Reply(nil)
-			return
-		}
-
-		session.CardHit(res, discord, i.User.Username)
-		return
-
-	case "blackjack-card-finish":
-		session := blackjack.Get(iData.GuildID)
-		if session == nil {
-			session.Failed(res, "現在 blackjack が行われていません")
-			return
-		}
-
-		if session.phase != HitTime {
-			res.Reply(nil)
-			return
-		}
-
-		session.CardFinish(res, discord, i.User.Username)
-		return
-
-	case "blackjack-game-continue":
-		session := blackjack.Get(iData.GuildID)
-		if session == nil {
-			session.Failed(res, "現在 blackjack が行われていません")
-			return
-		}
-
-		if session.phase != Ended {
-			res.Reply(nil)
-			return
-		}
-
-		session.GameContinue(res, discord, i.User.Username)
-		return
-
-	case "blackjack-game-finish":
-		session := blackjack.Get(iData.GuildID)
-		if session == nil {
-			session.Failed(res, "現在 blackjack が行われていません")
-			return
-		}
-
-		if session.phase != Ended {
-			res.Reply(nil)
-			return
-		}
-
-		session.GameFinish(res, discord, i.User.Username)
-		blackjack.Delete(iData.GuildID)
-		return
-	}
-
-	switch iData.Modal.CustomID {
-	case "blackjack-bed-input":
-		session := blackjack.Get(iData.GuildID)
-		if session == nil {
-			session.Failed(res, "現在 blackjack が行われていません")
-			return
-		}
-
-		if session.phase != BetTime {
-			res.Reply(nil)
-			return
-		}
-		session.UpdateBetValue(res, discord, i.User.Username, i.ModalSubmitData())
-		return
 	}
 }
 

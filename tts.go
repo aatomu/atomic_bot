@@ -240,6 +240,12 @@ func (s *ttsSessionData) ToggleUpdate(res *disgord.InteractionResponse) {
 	ttsSession.Success(res, fmt.Sprintf("ボイスチャットの参加/退出の通知を %t に変更しました", s.updateInfo))
 }
 
+func (s *ttsSessionData) ToggleBot(res *disgord.InteractionResponse) {
+	s.enableBot = !s.enableBot
+
+	ttsSession.Success(res, fmt.Sprintf("ボットメッセージ読み上げを %t に変更しました", s.enableBot))
+}
+
 func (s *ttsSessionData) CheckDic() (ok bool) {
 	// dic.txtがあるか
 	_, err := os.Stat(filepath.Join(".", "dic", s.guildID+".txt"))
