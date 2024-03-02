@@ -204,7 +204,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	// Check reading skip
-	if strings.HasPrefix(m.Content, ";") {
+	if strings.HasPrefix(m.Content, ";") || mData.Message == nil {
 		return
 	}
 
