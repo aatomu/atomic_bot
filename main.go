@@ -258,6 +258,20 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 					}()
 				}
 			}
+			if len(ttsSession.guilds) == 0 {
+				embed, err := discord.ChannelMessageSendEmbed(mData.ChannelID, &discordgo.MessageEmbed{
+					Type:  "rich",
+					Title: "Session Not Found",
+					Color: embedColor,
+				})
+				if err == nil {
+					go func() {
+						time.Sleep(30 * time.Second)
+						err := discord.ChannelMessageDelete(mData.ChannelID, embed.ID)
+						utils.PrintError("failed delete debug message", err)
+					}()
+				}
+			}
 			return
 		}
 	}
