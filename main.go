@@ -121,40 +121,6 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 			Description:              "ボットのメッセージを読み上げます",
 			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
 		},
-		// Others
-		{
-			Type:                     discordgo.ChatApplicationCommand,
-			Name:                     "poll",
-			Description:              "投票を作成します",
-			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
-			Options: []*discordgo.ApplicationCommandOption{
-				{Type: discordgo.ApplicationCommandOptionString, Name: "title", Description: "投票のタイトル", Required: true},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_1", Description: "選択肢 1", Required: true},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_2", Description: "選択肢 2", Required: true},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_3", Description: "選択肢 3", Required: false},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_4", Description: "選択肢 4", Required: false},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_5", Description: "選択肢 5", Required: false},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_6", Description: "選択肢 6", Required: false},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_7", Description: "選択肢 7", Required: false},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_8", Description: "選択肢 8", Required: false},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_9", Description: "選択肢 9", Required: false},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "choice_10", Description: "選択肢 10", Required: false},
-			},
-		},
-		{
-			Type:                     discordgo.ChatApplicationCommand,
-			Name:                     "simple-poll",
-			Description:              "簡易的な投票を作成",
-			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
-			Options: []*discordgo.ApplicationCommandOption{
-				{Type: discordgo.ApplicationCommandOptionString, Name: "text", Description: "メッセージ内容", Required: true},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_1", Description: "リアクション 1", Required: true},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_2", Description: "リアクション 2", Required: false},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_3", Description: "リアクション 3", Required: false},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_4", Description: "リアクション 4", Required: false},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "reaction_5", Description: "リアクション 5", Required: false},
-			},
-		},
 	})
 }
 
@@ -379,67 +345,6 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 
 		session.ToggleBot(res)
 		return
-
-	//その他
-	case "poll":
-		res.Thinking(false)
-
-		title := iData.CommandOptions["title"].StringValue()
-		choices := []string{}
-		choices = append(choices, iData.CommandOptions["choice_1"].StringValue())
-		choices = append(choices, iData.CommandOptions["choice_2"].StringValue())
-		if value, ok := iData.CommandOptions["choice_3"]; ok {
-			choices = append(choices, value.StringValue())
-		}
-		if value, ok := iData.CommandOptions["choice_4"]; ok {
-			choices = append(choices, value.StringValue())
-		}
-		if value, ok := iData.CommandOptions["choice_5"]; ok {
-			choices = append(choices, value.StringValue())
-		}
-		description := ""
-		reaction := []string{"1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"}
-		for i := 0; i < len(choices); i++ {
-			description += fmt.Sprintf("%s : %s\n", reaction[i], choices[i])
-		}
-		m, err := res.Follow(&discordgo.WebhookParams{
-			Embeds: []*discordgo.MessageEmbed{
-				{
-					Title:       title,
-					Color:       embedColor,
-					Description: description,
-				},
-			},
-		})
-		if utils.PrintError("Failed Follow", err) {
-			return
-		}
-		time.Sleep(1 * time.Second)
-		for i := 0; i < len(choices); i++ {
-			discord.MessageReactionAdd(m.ChannelID, m.ID, reaction[i])
-		}
-		//その他
-	case "simple-poll":
-		res.Reply(nil)
-
-		text := iData.CommandOptions["text"].StringValue()
-		reactions := []string{}
-		for x := 1; x <= 5; x++ {
-			v, ok := iData.CommandOptions[fmt.Sprintf("reaction_%d", x)]
-			if !ok {
-				continue
-			}
-			reactions = append(reactions, v.StringValue())
-		}
-
-		m, err := discord.ChannelMessageSend(iData.ChannelID, text)
-		if err != nil {
-			return
-		}
-		time.Sleep(1 * time.Second)
-		for _, reaction := range reactions {
-			discord.MessageReactionAdd(m.ChannelID, m.ID, reaction)
-		}
 	}
 }
 
