@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"time"
@@ -165,7 +166,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	mData := disgord.MessageParse(discord, m.Message)
 	if mData.Guild != nil {
 		if mData.Guild.Name != "Bot Repo" {
-			logger.Info(mData.FormatText)
+			logger.Info(toJson(m))
 		}
 	}
 
@@ -256,7 +257,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCreate) {
 	// 表示&処理しやすく
 	iData := disgord.InteractionParse(discord, i.Interaction)
-	logger.Info(iData.FormatText)
+	logger.Info(toJson(i))
 
 	// response用データ
 	res := disgord.NewInteractionResponse(discord, i.Interaction)
@@ -354,7 +355,7 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 	if !vData.UpdateStatus.ChannelJoin {
 		return
 	}
-	logger.Info(vData.FormatText)
+	logger.Info(toJson(v))
 
 	//セッションがあるか確認
 	session := ttsSession.Get(v.GuildID)
@@ -366,4 +367,9 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 
 func Pinter(n int64) *int64 {
 	return &n
+}
+
+func toJson(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
 }
