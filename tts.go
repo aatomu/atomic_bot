@@ -226,7 +226,7 @@ func (s *ttsSessionData) Dictionary(res *disgord.InteractionResponse, i disgord.
 
 	//書き込み
 	err := os.WriteFile(fileName, []byte(dic), 0755)
-	if !utils.PrintError("Config Update Failed", err) {
+	if utils.PrintError("Config Update Failed", err) {
 		ttsSession.Failed(res, "辞書の書き込みに失敗しました")
 		return
 	}
@@ -266,7 +266,7 @@ func (s *ttsSessionData) CheckDic() (ok bool) {
 	//ファイル作成
 	f, err := os.Create(filepath.Join(".", "dic", s.guildID+".txt"))
 	f.Close()
-	return !utils.PrintError("Failed create dictionary", err)
+	return utils.PrintError("Failed create dictionary", err)
 }
 
 func (s *ttsSessions) Config(userID string, newConfig UserSetting) (result UserSetting, err error) {
