@@ -266,7 +266,7 @@ func (s *ttsSessionData) CheckDic() (ok bool) {
 	//ファイル作成
 	f, err := os.Create(filepath.Join(".", "dic", s.guildID+".txt"))
 	f.Close()
-	return utils.PrintError("Failed create dictionary", err)
+	return !utils.PrintError("Failed create dictionary", err)
 }
 
 func (s *ttsSessions) Config(userID string, newConfig UserSetting) (result UserSetting, err error) {
