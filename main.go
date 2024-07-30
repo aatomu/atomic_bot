@@ -166,7 +166,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	mData := disgord.MessageParse(discord, m.Message)
 	if mData.Guild != nil {
 		if mData.Guild.Name != "Bot Repo" {
-			logger.Info(toJson(m) + "\n")
+			logger.Info(toJson(m))
 		}
 	}
 
@@ -257,7 +257,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCreate) {
 	// 表示&処理しやすく
 	iData := disgord.InteractionParse(discord, i.Interaction)
-	logger.Info(toJson(i) + "\n")
+	logger.Info(toJson(i))
 
 	// response用データ
 	res := disgord.NewInteractionResponse(discord, i.Interaction)
@@ -355,7 +355,7 @@ func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdat
 	if !vData.UpdateStatus.ChannelJoin {
 		return
 	}
-	logger.Info(toJson(v) + "\n")
+	logger.Info(toJson(v))
 
 	//セッションがあるか確認
 	session := ttsSession.Get(v.GuildID)
