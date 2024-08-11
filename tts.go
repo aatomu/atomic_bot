@@ -249,7 +249,7 @@ func (s *ttsSessionData) ToggleBot(res *disgord.InteractionResponse) {
 func (s *ttsSessionData) CheckDic() (ok bool) {
 	// dic.txtがあるか
 	_, err := os.Stat(filepath.Join(".", "dic", s.guildID+".txt"))
-	if os.IsExist(err) {
+	if err == nil {
 		return true
 	}
 
