@@ -443,8 +443,6 @@ func (s *SessionData) JoinVoice(res *disgord.InteractionResponse, discord *disco
 		return
 	}
 
-	vcSession.LogLevel = discordgo.LogDebug
-	vcSession.Debug = true
 	session := &SessionData{
 		guildID:   guildID,
 		channelID: channelID,
@@ -452,7 +450,6 @@ func (s *SessionData) JoinVoice(res *disgord.InteractionResponse, discord *disco
 		lead:      sync.Mutex{},
 	}
 
-	sessions.Add(session)
 	go func() {
 		for {
 			if sessions.Get(guildID) == nil {
