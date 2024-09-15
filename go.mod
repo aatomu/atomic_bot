@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/aatomu/aatomlib/disgord v0.0.0-20240219230240-dac1f72ebc71
 	github.com/aatomu/aatomlib/utils v0.0.0-20240208154453-9335f634603c
-	github.com/bwmarrin/discordgo v0.27.1
+	github.com/bwmarrin/discordgo v0.28.1
 	golang.org/x/text v0.14.0
 )
 

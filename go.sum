@@ -2,8 +2,8 @@ github.com/aatomu/aatomlib/disgord v0.0.0-20240219230240-dac1f72ebc71 h1:ACaX2fO
 github.com/aatomu/aatomlib/disgord v0.0.0-20240219230240-dac1f72ebc71/go.mod h1:nh6A9ENB5qDyQs/gKTFzJx9Hy5gseoKTC6fUcyyIV1c=
 github.com/aatomu/aatomlib/utils v0.0.0-20240208154453-9335f634603c h1:BpIrUQ+wMDrrsC2WTNZUdCJ0XvhWy6JGrSUkLT5EfuA=
 github.com/aatomu/aatomlib/utils v0.0.0-20240208154453-9335f634603c/go.mod h1:EwktuwFcrFR3PZsKYorV9/awjhmgZM6ar2fih1vgfK8=
-github.com/bwmarrin/discordgo v0.27.1 h1:ib9AIc/dom1E/fSIulrBwnez0CToJE113ZGt4HoliGY=
-github.com/bwmarrin/discordgo v0.27.1/go.mod h1:NJZpH+1AfhIcyQsPeuBKsUtYrRnjkyu0kIVMCHkZtRY=
+github.com/bwmarrin/discordgo v0.28.1 h1:gXsuo2GBO7NbR6uqmrrBDplPUx2T3nzu775q/Rd1aG4=
+github.com/bwmarrin/discordgo v0.28.1/go.mod h1:NJZpH+1AfhIcyQsPeuBKsUtYrRnjkyu0kIVMCHkZtRY=
 github.com/gorilla/websocket v1.4.2/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/gorilla/websocket v1.5.1 h1:gmztn0JnHVt9JZquRuzLw3g4wouNVzKL15iLr/zn/QY=
 github.com/gorilla/websocket v1.5.1/go.mod h1:x3kM2JMyaluk02fnUJpQuwD2dCS5NDG2ZHL0uE0tcaY=
