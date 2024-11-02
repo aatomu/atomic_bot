@@ -30,7 +30,6 @@ type SessionData struct {
 	channelID  string
 	vc         *discordgo.VoiceConnection
 	lead       sync.Mutex
-	enableBot  bool
 	updateInfo bool
 }
 
@@ -141,12 +140,6 @@ func onReady(discord *discordgo.Session, r *discordgo.Ready) {
 			Type:                     discordgo.ChatApplicationCommand,
 			Name:                     "update",
 			Description:              "参加,退出を通知します",
-			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
-		},
-		{
-			Type:                     discordgo.ChatApplicationCommand,
-			Name:                     "bot",
-			Description:              "ボットのメッセージを読み上げます",
 			DefaultMemberPermissions: Pinter(discordgo.PermissionViewChannel),
 		},
 	})
@@ -272,7 +265,7 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	//読み上げ
 	session := sessions.Get(mData.GuildID)
 	if session != nil {
-		if session.IsJoined() && session.channelID == mData.ChannelID && !(m.Author.Bot && !session.enableBot) {
+		if session.IsJoined() && session.channelID == mData.ChannelID {
 			session.Speech(mData.User.ID, mData.Message.Content)
 			return
 		}
@@ -360,17 +353,6 @@ func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCre
 		}
 
 		session.ToggleUpdate(res)
-		return
-	case "bot":
-		res.Thinking(false)
-
-		session := sessions.Get(iData.GuildID)
-		if !session.IsJoined() {
-			sessions.Failed(res, "VoiceChat に接続していません")
-			return
-		}
-
-		session.ToggleBot(res)
 		return
 	}
 }
@@ -613,12 +595,6 @@ func (s *SessionData) ToggleUpdate(res *disgord.InteractionResponse) {
 	s.updateInfo = !s.updateInfo
 
 	sessions.Success(res, fmt.Sprintf("ボイスチャットの参加/退出の通知を %t に変更しました", s.updateInfo))
-}
-
-func (s *SessionData) ToggleBot(res *disgord.InteractionResponse) {
-	s.enableBot = !s.enableBot
-
-	sessions.Success(res, fmt.Sprintf("ボットメッセージ読み上げを %t に変更しました", s.enableBot))
 }
 
 func (s *SessionData) CheckDic() (ok bool) {
