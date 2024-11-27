@@ -160,29 +160,6 @@ func onMessageCreate(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		},
 	})
 
-	// Update voice session
-	go func() {
-		if isVcSessionUpdateLock {
-			return
-		}
-
-		// Update check
-		isVcSessionUpdateLock = true
-		defer func() {
-			time.Sleep(1 * time.Minute)
-			isVcSessionUpdateLock = false
-		}()
-
-		for i := range sessions.guilds {
-			go func(n int) {
-				session := sessions.guilds[n]
-				session.lead.Lock()
-				defer session.lead.Unlock()
-				session.vc = discord.VoiceConnections[session.guildID]
-			}(i)
-		}
-	}()
-
 	mData := disgord.MessageParse(discord, m.Message)
 	if mData.User.Bot {
 		return
@@ -436,14 +413,13 @@ func (s *SessionData) JoinVoice(res *disgord.InteractionResponse, discord *disco
 
 	sessions.Add(session)
 	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
 		for {
-			if sessions.Get(guildID) == nil {
-				return
+			<-ticker.C
+			err := disgord.PlayAudioFile(session.vc, "./beep.mp3", 10, 1, 0.001, false, make(<-chan bool))
+			if err != nil {
+				break
 			}
-			session.lead.Lock()
-			session.vc.Speaking(false)
-			session.lead.Unlock()
-			time.Sleep(10 * time.Second)
 		}
 	}()
 
