@@ -66,10 +66,11 @@ Golangで自分のために作成
   * OAuth2
     * [x] BOT
       * General Permissions
-        * [x] Read Message
+        * [x] View Channels
       * Text Permissions
         * [x] Send Messages
         * [x] Embed Links
+        * [x] Attach Files
         * [x] Read Message History
         * [x] Add Reactions
       * Voice Permissions
