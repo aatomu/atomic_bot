@@ -28,7 +28,6 @@ import (
 	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/omit"
 	"github.com/disgoorg/snowflake/v2"
-	"golang.org/x/text/language"
 )
 
 type Sessions struct {
@@ -74,9 +73,9 @@ func main() {
 		bot.WithGatewayConfigOpts(
 			gateway.WithIntents(
 				gateway.IntentGuilds,
+				gateway.IntentMessageContent,
 				gateway.IntentGuildMessages,
 				gateway.IntentGuildVoiceStates,
-				gateway.IntentGuildMembers,
 			),
 		),
 		bot.WithCacheConfigOpts(
@@ -98,31 +97,18 @@ func main() {
 		panic(err)
 	}
 
-	// Initialize bot
-	discord, err := discordgo.New("Bot " + *token)
-	if err != nil {
-		logger.Error("Failed bot initialize", err)
-		return
-	}
-
-	// Set event handlers
-	discord.AddHandler(onReady)
-	discord.AddHandler(onMessageCreate)
-	// discord.AddHandler(onInteractionCreate)
-	// discord.AddHandler(onVoiceStateUpdate)
-
 	// Connect to Discord
-	discord.Open()
 	defer func() {
 		for _, session := range sessions.guilds {
-			discord.ChannelMessageSendEmbed(session.channelID, &discordgo.MessageEmbed{
-				Type:        "rich",
-				Title:       "__Information__",
-				Description: "Sorry. Bot will Shutdown. Will be try later.",
-				Color:       embedColor,
-			})
+			client.Rest.CreateMessage(session.channelID, discord.NewMessageCreate().AddEmbeds(
+				discord.Embed{
+					Type:        discord.EmbedTypeRich,
+					Title:       "__Information__",
+					Description: "Sorry. Bot will Shutdown. Will be try later.",
+					Color:       embedColor,
+				},
+			))
 		}
-		discord.Close()
 	}()
 
 	s := make(chan os.Signal, 1)
@@ -248,7 +234,8 @@ func onMessageCreate(m *events.MessageCreate) {
 			if utils.RegMatch(m.Message.Content, "[0-9]$") {
 				guildID := utils.RegReplace(m.Message.Content, "", `^!debug\s*`)
 				logger.Info("Deleting SessionItem : " + guildID)
-				sessions.Delete(guildID)
+				id, _ := snowflake.Parse(guildID)
+				sessions.Delete(&id)
 				return
 			}
 
@@ -285,7 +272,7 @@ func onMessageCreate(m *events.MessageCreate) {
 					discord.NewMessageCreate().
 						AddEmbeds(discord.Embed{
 							Type:        discord.EmbedTypeRich,
-							Title:       fmt.Sprintf("Guild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name, session.channelID),
+							Title:       fmt.Sprintf("Guild:%s(%s)\nChannel:%s(%s)", guild.Name, session.guildID, channel.Name(), session.channelID),
 							Description: fmt.Sprintf("Members:```\n%s```", strings.Join(VCdata[guild.ID], ",")),
 							Color:       embedColor,
 						}),
@@ -525,7 +512,8 @@ func (s *SessionData) AutoLeave(discord *discordgo.Session, isJoin bool, userNam
 	isLeave := true
 	for _, guild := range discord.State.Guilds {
 		for _, vs := range guild.VoiceStates {
-			if checkVcChannelID == vs.ChannelID && vs.UserID != clientID {
+			id, _ := snowflake.Parse(vs.UserID)
+			if checkVcChannelID == vs.ChannelID && id != clientID {
 				isLeave = false
 				break
 			}
@@ -556,6 +544,9 @@ func (session *SessionData) Speech(userID snowflake.ID, text string) {
 
 		scanner := bufio.NewScanner(data)
 		for scanner.Scan() {
+			if scanner.Err() != nil {
+				break
+			}
 			line := scanner.Text()
 			words := strings.Split(line, ",")
 			text = strings.ReplaceAll(text, words[0], words[1])
@@ -752,36 +743,36 @@ func (s *Sessions) Config(userID snowflake.ID, newConfig UserSetting) (result Us
 	return
 }
 
-func (s *Sessions) UpdateConfig(res *disgord.InteractionResponse, i disgord.InteractionData) {
-	// 読み込み
-	result, err := sessions.Config(i.User.ID, UserSetting{})
-	if utils.PrintError("Failed Get Config", err) {
-		sessions.Failed(res, "読み上げ設定を読み込めませんでした")
-		return
-	}
-	// チェック
-	if newSpeed, ok := i.CommandOptions["speed"]; ok {
-		result.Speed = newSpeed.FloatValue()
-	}
-	if newPitch, ok := i.CommandOptions["pitch"]; ok {
-		result.Pitch = newPitch.FloatValue()
-	}
-	if newLang, ok := i.CommandOptions["lang"]; ok {
-		result.Lang = newLang.StringValue()
-		// 言語チェック
-		_, err := language.Parse(result.Lang)
-		if result.Lang != "auto" && err != nil {
-			s.Failed(res, "不明な言語です\n\"auto\"もしくは言語コードのみ使用可能です")
-			return
-		}
-	}
+// func (s *Sessions) UpdateConfig(res *disgord.InteractionResponse, i disgord.InteractionData) (ok string, err error) {
+// 	// 読み込み
+// 	result, err := sessions.Config(i.User.ID, UserSetting{})
+// 	if utils.PrintError("Failed Get Config", err) {
+// 		sessions.Failed(res, "読み上げ設定を読み込めませんでした")
+// 		return
+// 	}
+// 	// チェック
+// 	if newSpeed, ok := i.CommandOptions["speed"]; ok {
+// 		result.Speed = newSpeed.FloatValue()
+// 	}
+// 	if newPitch, ok := i.CommandOptions["pitch"]; ok {
+// 		result.Pitch = newPitch.FloatValue()
+// 	}
+// 	if newLang, ok := i.CommandOptions["lang"]; ok {
+// 		result.Lang = newLang.StringValue()
+// 		// 言語チェック
+// 		_, err := language.Parse(result.Lang)
+// 		if result.Lang != "auto" && err != nil {
+// 			s.Failed(res, "不明な言語です\n\"auto\"もしくは言語コードのみ使用可能です")
+// 			return
+// 		}
+// 	}
 
-	_, err = sessions.Config(i.User.ID, result)
-	if utils.PrintError("Failed Write Config", err) {
-		sessions.Failed(res, "保存に失敗しました")
-	}
-	sessions.Success(res, "読み上げ設定を変更しました")
-}
+// 	_, err = sessions.Config(i.User.ID, result)
+// 	if utils.PrintError("Failed Write Config", err) {
+// 		sessions.Failed(res, "保存に失敗しました")
+// 	}
+// 	sessions.Success(res, "読み上げ設定を変更しました")
+// }
 
 func (s *Sessions) Failed(res *disgord.InteractionResponse, description string) {
 	_, err := res.Follow(&discordgo.WebhookParams{
