@@ -59,7 +59,14 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM+JJJJ` ` `` ` `` ``(JJJJMMMMMMMMMMMMM
 -->
 # atomic_bot
 Golangで自分のために作成  
-開発環境: go1.20.1 linux/amd64 ffmpeg:4.4.2-0ubuntu0.22.04.1  
+開発環境: 
+- go version go1.26.4 linux/amd64
+- Ubuntu 26.04 LTS (Resolute Raccoon)
+- ffmpeg version 8.0.1-3ubuntu2
+- pkg-config
+- disgoorg/godave(https://github.com/disgoorg/godave)
+
+
 
 ## -必要permission-  
 * SETTINGS

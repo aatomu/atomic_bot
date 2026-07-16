@@ -1,5 +1,6 @@
 #shell script
 *.sh
+!install_godave.sh
 #./dic(辞書) UserConfig.txt user_config.json
 *.txt
 *.json

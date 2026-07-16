@@ -1,5 +1,6 @@
 package main
 
+import "C"
 import (
 	"bufio"
 	"context"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"regexp"
@@ -17,15 +19,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aatomu/aatomlib/disgord"
 	"github.com/aatomu/aatomlib/utils"
-	"github.com/bwmarrin/discordgo"
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/cache"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
+	"github.com/disgoorg/disgo/voice"
+	"github.com/disgoorg/godave/golibdave"
 	"github.com/disgoorg/omit"
 	"github.com/disgoorg/snowflake/v2"
 )
@@ -38,7 +40,7 @@ type Sessions struct {
 type SessionData struct {
 	guildID    *snowflake.ID
 	channelID  snowflake.ID
-	vc         *discordgo.VoiceConnection
+	vc         *voice.Conn
 	lead       sync.Mutex
 	updateInfo bool
 }
@@ -73,8 +75,8 @@ func main() {
 		bot.WithGatewayConfigOpts(
 			gateway.WithIntents(
 				gateway.IntentGuilds,
-				gateway.IntentMessageContent,
-				gateway.IntentGuildMessages,
+				// gateway.IntentMessageContent,
+				// gateway.IntentGuildMessages,
 				gateway.IntentGuildVoiceStates,
 			),
 		),
@@ -85,9 +87,14 @@ func main() {
 				cache.FlagVoiceStates,
 			),
 		),
+		bot.WithVoiceManagerConfigOpts(
+			voice.WithDaveSessionCreateFunc(golibdave.NewSession),
+		),
 		// add event listeners
 		bot.WithEventListenerFunc(onReady),
 		bot.WithEventListenerFunc(onMessageCreate),
+		bot.WithEventListenerFunc(onInteractionCreate),
+		// bot.WithEventListenerFunc(onVoiceStateUpdate),
 	)
 	if err != nil {
 		panic(err)
@@ -318,90 +325,90 @@ func onMessageCreate(m *events.MessageCreate) {
 	}
 }
 
-// // InteractionCreate
-// func onInteractionCreate(discord *discordgo.Session, i *discordgo.InteractionCreate) {
-// 	// 表示&処理しやすく
-// 	iData := disgord.InteractionParse(discord, i.Interaction)
-// 	logger.Info(toJson(i))
+// InteractionCreate
+func onInteractionCreate(i *events.ApplicationCommandInteractionCreate) {
+	// 表示&処理しやすく
+	logger.Info(toJson(i))
 
-// 	// response用データ
-// 	res := disgord.NewInteractionResponse(discord, i.Interaction)
+	// 分岐
+	data := i.SlashCommandInteractionData()
+	switch data.CommandName() {
+	//TTS
+	case "join":
+		i.DeferCreateMessage(false)
 
-// 	// 分岐
-// 	switch iData.Command.Name {
-// 	//TTS
-// 	case "join":
-// 		res.Thinking(false)
+		session := sessions.Get(i.GuildID())
+		if session.IsJoined() {
+			sessions.Failed(i, "VoiceChat にすでに接続しています")
+			return
+		}
 
-// 		session := sessions.Get(iData.GuildID)
-// 		if session.IsJoined() {
-// 			sessions.Failed(res, "VoiceChat にすでに接続しています")
-// 			return
-// 		}
+		session.JoinVoice(i)
+		return
 
-// 		session.JoinVoice(res, discord, iData.GuildID, iData.ChannelID, iData.User.ID)
-// 		return
+	case "leave":
+		i.DeferCreateMessage(false)
 
-// 	case "leave":
-// 		res.Thinking(false)
+		session := sessions.Get(i.GuildID())
+		if !session.IsJoined() {
+			sessions.Failed(i, "VoiceChat に接続していません")
+			return
+		}
+		session.LeaveVoice(i)
 
-// 		session := sessions.Get(iData.GuildID)
-// 		if !session.IsJoined() {
-// 			sessions.Failed(res, "VoiceChat に接続していません")
-// 			return
-// 		}
-// 		session.LeaveVoice(res)
+	case "get":
+		i.DeferCreateMessage(false)
 
-// 	case "get":
-// 		res.Thinking(false)
+		result, err := sessions.Config(i.User().ID, UserSetting{})
+		if utils.PrintError("Failed Get Config", err) {
+			sessions.Failed(i, "データのアクセスに失敗しました。")
+			return
+		}
 
-// 		result, err := sessions.Config(iData.User.ID, UserSetting{})
-// 		if utils.PrintError("Failed Get Config", err) {
-// 			sessions.Failed(res, "データのアクセスに失敗しました。")
-// 			return
-// 		}
+		i.Client().Rest.CreateFollowupMessage(
+			i.ApplicationID(),
+			i.Token(),
+			discord.NewMessageCreate().AddEmbeds(
+				discord.Embed{
+					Title:       fmt.Sprintf("@%s's Speech Config", i.User().Username),
+					Color:       embedColor,
+					Description: fmt.Sprintf("```\nLang  : %4s\nSpeed : %3.2f\nPitch : %3.2f```", result.Lang, result.Speed, result.Pitch),
+				},
+			),
+		)
+		return
 
-// 		res.Follow(&discordgo.WebhookParams{
-// 			Embeds: []*discordgo.MessageEmbed{
-// 				{
-// 					Title:       fmt.Sprintf("@%s's Speech Config", iData.User.Username),
-// 					Description: fmt.Sprintf("```\nLang  : %4s\nSpeed : %3.2f\nPitch : %3.2f```", result.Lang, result.Speed, result.Pitch),
-// 				},
-// 			},
-// 		})
-// 		return
+		// case "set":
+		// 	i.DeferCreateMessage(false)
 
-// 	case "set":
-// 		res.Thinking(false)
+		// 	sessions.UpdateConfig(res, iData)
+		// 	return
 
-// 		sessions.UpdateConfig(res, iData)
-// 		return
+		// case "dic":
+		// 	i.DeferCreateMessage(false)
 
-// 	case "dic":
-// 		res.Thinking(false)
+		// 	session := sessions.Get(i.GuildID())
+		// 	if !session.IsJoined() {
+		// 		sessions.Failed(i, "VoiceChat に接続していません")
+		// 		return
+		// 	}
 
-// 		session := sessions.Get(iData.GuildID)
-// 		if !session.IsJoined() {
-// 			sessions.Failed(res, "VoiceChat に接続していません")
-// 			return
-// 		}
+		// 	session.Dictionary(i)
+		// 	return
 
-// 		session.Dictionary(res, iData)
-// 		return
+		// case "update":
+		// 	i.DeferCreateMessage(false)
 
-// 	case "update":
-// 		res.Thinking(false)
+		// 	session := sessions.Get(i.GuildID())
+		// 	if !session.IsJoined() {
+		// 		sessions.Failed(i, "VoiceChat に接続していません")
+		// 		return
+		// 	}
 
-// 		session := sessions.Get(iData.GuildID)
-// 		if !session.IsJoined() {
-// 			sessions.Failed(res, "VoiceChat に接続していません")
-// 			return
-// 		}
-
-// 		session.ToggleUpdate(res)
-// 		return
-// 	}
-// }
+		// 	session.ToggleUpdate(res)
+		// 	return
+	}
+}
 
 // // VCでJoin||Leaveが起きたときにCall
 // func onVoiceStateUpdate(discord *discordgo.Session, v *discordgo.VoiceStateUpdate) {
@@ -417,10 +424,6 @@ func onMessageCreate(m *events.MessageCreate) {
 // 		return
 // 	}
 // 	session.AutoLeave(discord, vData.Status.ChannelJoin, vData.User.Username)
-// }
-
-// func Pinter(n int64) *int64 {
-// 	return &n
 // }
 
 func toJson(v any) string {
@@ -455,7 +458,7 @@ func (s *Sessions) Delete(guildID *snowflake.ID) {
 	for _, session := range s.guilds {
 		if session.guildID == guildID {
 			if session.vc != nil {
-				session.vc.Disconnect()
+				(*session.vc).Close(context.Background())
 			}
 			continue
 		}
@@ -464,78 +467,87 @@ func (s *Sessions) Delete(guildID *snowflake.ID) {
 	s.guilds = newSessions
 }
 
-func (s *SessionData) JoinVoice(res *disgord.InteractionResponse, discord *discordgo.Session, guildID *snowflake.ID, channelID snowflake.ID, userID string) {
-	vcSession, err := disgord.JoinUserVCchannel(discord, userID, false, true)
-	if utils.PrintError("Failed Join VoiceChat", err) {
-		sessions.Failed(res, "ユーザーが VoiceChatに接続していない\nもしくは権限が不足しています")
+func (s *SessionData) JoinVoice(i *events.ApplicationCommandInteractionCreate) {
+	guildID := i.GuildID()
+	if guildID == nil {
+		sessions.Failed(i, "このコマンドはサーバー内でのみ実行できます。")
 		return
 	}
 
+	voiceState, found := i.Client().Caches.VoiceState(*guildID, i.User().ID)
+	if !found || voiceState.ChannelID == nil {
+		// ユーザーがボイスチャンネルに入っていない場合
+		sessions.Failed(i, "ユーザーの接続している VoiceChat を見つけられませんでした。")
+		return
+	}
+
+	vcSession := i.Client().VoiceManager.CreateConn(*guildID)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+
+	defer cancel()
+	err := vcSession.Open(ctx, *voiceState.ChannelID, false, false)
+	if err != nil {
+		logger.Error("Failed to open voice conn: " + err.Error())
+		sessions.Failed(i, "Voice Connection を確立できませんでした。")
+		return
+	}
+
+	vcSession.Gateway().Status()
 	// vcSession.LogLevel = discordgo.LogDebug
 
 	session := &SessionData{
 		guildID:   guildID,
-		channelID: channelID,
-		vc:        vcSession,
+		channelID: *voiceState.ChannelID,
+		vc:        &vcSession,
 		lead:      sync.Mutex{},
 	}
 
 	sessions.Add(session)
-	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
-		for {
-			<-ticker.C
-			err := disgord.PlayAudioFile(session.vc, "./beep.mp3", 10, 1, 0.001, false, make(<-chan bool))
-			if err != nil {
-				break
-			}
-		}
-	}()
 
 	session.Speech(0, "おはー")
-	sessions.Success(res, "ハロー!")
+	sessions.Success(i, "ハロー!")
 }
 
-func (s *SessionData) LeaveVoice(res *disgord.InteractionResponse) {
+func (s *SessionData) LeaveVoice(i *events.ApplicationCommandInteractionCreate) {
 	s.Speech(0, "さいなら")
-	sessions.Success(res, "グッバイ!")
+	sessions.Success(i, "グッバイ!")
 	time.Sleep(1 * time.Second)
-	s.vc.Disconnect()
+	(*s.vc).Close(context.Background())
 
 	sessions.Delete(s.guildID)
 }
 
-func (s *SessionData) AutoLeave(discord *discordgo.Session, isJoin bool, userName string) {
-	checkVcChannelID := s.vc.ChannelID
+// func (s *SessionData) AutoLeave(discord *discordgo.Session, isJoin bool, userName string) {
+// 	checkVcChannelID := (*s.vc).ChannelID()
 
-	// ボイスチャンネルに誰かいるか
-	isLeave := true
-	for _, guild := range discord.State.Guilds {
-		for _, vs := range guild.VoiceStates {
-			id, _ := snowflake.Parse(vs.UserID)
-			if checkVcChannelID == vs.ChannelID && id != clientID {
-				isLeave = false
-				break
-			}
-		}
-	}
+// 	// ボイスチャンネルに誰かいるか
+// 	isLeave := true
+// 	for _, guild := range discord.State.Guilds {
+// 		for _, vs := range guild.VoiceStates {
+// 			id, _ := snowflake.Parse(vs.UserID)
+// 			if checkVcChannelID == vs..ChannelID && id != clientID {
+// 				isLeave = false
+// 				break
+// 			}
+// 		}
+// 	}
 
-	if isLeave {
-		// ボイスチャンネルに誰もいなかったら Disconnect する
-		s.vc.Disconnect()
-		sessions.Delete(s.guildID)
-	} else {
-		// でなければ通知?
-		if !s.updateInfo {
-			return
-		}
-		if isJoin {
-			s.Speech(0, fmt.Sprintf("%s join the voice", userName))
-		} else {
-			s.Speech(0, fmt.Sprintf("%s left the voice", userName))
-		}
-	}
-}
+// 	if isLeave {
+// 		// ボイスチャンネルに誰もいなかったら Disconnect する
+// 		(*s.vc).Close(context.Background())
+// 		sessions.Delete(s.guildID)
+// 	} else {
+// 		// でなければ通知?
+// 		if !s.updateInfo {
+// 			return
+// 		}
+// 		if isJoin {
+// 			s.Speech(0, fmt.Sprintf("%s join the voice", userName))
+// 		} else {
+// 			s.Speech(0, fmt.Sprintf("%s left the voice", userName))
+// 		}
+// 	}
+// }
 
 func (session *SessionData) Speech(userID snowflake.ID, text string) {
 	if session.CheckDic() {
@@ -593,58 +605,61 @@ func (session *SessionData) Speech(userID snowflake.ID, text string) {
 		}
 	}
 
-	//読み上げ待機
+	// 読み上げ待機
 	session.lead.Lock()
 	defer session.lead.Unlock()
 
+	// 以前の disgord.PlayAudioFile 相当の呼び出し
 	voiceURL := fmt.Sprintf("http://translate.google.com/translate_tts?ie=UTF-8&textlen=100&client=tw-ob&q=%s&tl=%s", url.QueryEscape(read), settingData.Lang)
-	err = disgord.PlayAudioFile(session.vc, voiceURL, settingData.Speed, settingData.Pitch, 1, false, make(<-chan bool))
+
+	// disgo の voice.Conn (session.vc と想定) に対して再生
+	err = PlayAudioURL(context.Background(), *session.vc, voiceURL, settingData.Speed, settingData.Pitch, 1.0)
 	utils.PrintError("Failed play Audio \""+read+"\" ", err)
 }
 
-func (s *SessionData) Dictionary(res *disgord.InteractionResponse, i disgord.InteractionData) {
-	//ファイルの指定
-	fileName := filepath.Join(".", "dic", s.guildID.String()+".txt")
-	//dicがあるか確認
-	if !s.CheckDic() {
-		sessions.Failed(res, "辞書の読み込みに失敗しました")
-		return
-	}
+// func (s *SessionData) Dictionary(res *disgord.InteractionResponse, i disgord.InteractionData) {
+// 	//ファイルの指定
+// 	fileName := filepath.Join(".", "dic", s.guildID.String()+".txt")
+// 	//dicがあるか確認
+// 	if !s.CheckDic() {
+// 		sessions.Failed(res, "辞書の読み込みに失敗しました")
+// 		return
+// 	}
 
-	textByte, _ := os.ReadFile(fileName)
-	dic := string(textByte)
+// 	textByte, _ := os.ReadFile(fileName)
+// 	dic := string(textByte)
 
-	//textをfrom toに
-	from := i.CommandOptions["from"].StringValue()
-	to := i.CommandOptions["to"].StringValue()
+// 	//textをfrom toに
+// 	from := i.CommandOptions["from"].StringValue()
+// 	to := i.CommandOptions["to"].StringValue()
 
-	// 禁止文字チェック
-	if strings.Contains(from, ",") || strings.Contains(to, ",") {
-		sessions.Failed(res, "使用できない文字が含まれています")
-		return
-	}
+// 	// 禁止文字チェック
+// 	if strings.Contains(from, ",") || strings.Contains(to, ",") {
+// 		sessions.Failed(res, "使用できない文字が含まれています")
+// 		return
+// 	}
 
-	//確認
-	if strings.Contains(dic, from+",") {
-		dic = utils.RegReplace(dic, "", "\n"+from+",.*")
-	}
-	dic = dic + from + "," + to + "\n"
+// 	//確認
+// 	if strings.Contains(dic, from+",") {
+// 		dic = utils.RegReplace(dic, "", "\n"+from+",.*")
+// 	}
+// 	dic = dic + from + "," + to + "\n"
 
-	//書き込み
-	err := os.WriteFile(fileName, []byte(dic), 0755)
-	if utils.PrintError("Config Update Failed", err) {
-		sessions.Failed(res, "辞書の書き込みに失敗しました")
-		return
-	}
+// 	//書き込み
+// 	err := os.WriteFile(fileName, []byte(dic), 0755)
+// 	if utils.PrintError("Config Update Failed", err) {
+// 		sessions.Failed(res, "辞書の書き込みに失敗しました")
+// 		return
+// 	}
 
-	sessions.Success(res, "辞書を保存しました\n\""+from+"\" => \""+to+"\"")
-}
+// 	sessions.Success(res, "辞書を保存しました\n\""+from+"\" => \""+to+"\"")
+// }
 
-func (s *SessionData) ToggleUpdate(res *disgord.InteractionResponse) {
-	s.updateInfo = !s.updateInfo
+// func (s *SessionData) ToggleUpdate(res *disgord.InteractionResponse) {
+// 	s.updateInfo = !s.updateInfo
 
-	sessions.Success(res, fmt.Sprintf("ボイスチャットの参加/退出の通知を %t に変更しました", s.updateInfo))
-}
+// 	sessions.Success(res, fmt.Sprintf("ボイスチャットの参加/退出の通知を %t に変更しました", s.updateInfo))
+// }
 
 func (s *SessionData) CheckDic() (ok bool) {
 	// dic.txtがあるか
@@ -774,41 +789,128 @@ func (s *Sessions) Config(userID snowflake.ID, newConfig UserSetting) (result Us
 // 	sessions.Success(res, "読み上げ設定を変更しました")
 // }
 
-func (s *Sessions) Failed(res *disgord.InteractionResponse, description string) {
-	_, err := res.Follow(&discordgo.WebhookParams{
-		Embeds: []*discordgo.MessageEmbed{
-			{
+func (s *Sessions) Failed(i *events.ApplicationCommandInteractionCreate, description string) {
+	_, err := i.Client().Rest.CreateFollowupMessage(
+		i.ApplicationID(),
+		i.Token(),
+		discord.NewMessageCreate().AddEmbeds(
+			discord.Embed{
 				Title:       "Command Failed",
 				Color:       embedColor,
 				Description: description,
 			},
-		},
-	})
+		),
+	)
 	utils.PrintError("Failed send response", err)
 }
 
-func (s *Sessions) Success(res *disgord.InteractionResponse, description string) {
-	_, err := res.Follow(&discordgo.WebhookParams{
-		Embeds: []*discordgo.MessageEmbed{
-			{
+func (s *Sessions) Success(i *events.ApplicationCommandInteractionCreate, description string) {
+	_, err := i.Client().Rest.CreateFollowupMessage(
+		i.ApplicationID(),
+		i.Token(),
+		discord.NewMessageCreate().AddEmbeds(
+			discord.Embed{
 				Title:       "Command Success",
 				Color:       embedColor,
 				Description: description,
 			},
-		},
-	})
+		),
+	)
 	utils.PrintError("Failed send response", err)
 }
 
-type MessageData struct {
-	GuildID   *snowflake.ID
-	Guild     discord.Guild
-	ChannelID *snowflake.ID
-	Channel   discord.Channel
-	User      discord.User
+func PlayAudioURL(ctx context.Context, conn voice.Conn, filename string, speed float64, pitch float64, volume float64) error {
+	// 1. ボイスゲートウェイの接続が「Ready (接続完了)」になるまで最大5秒間待機する
+	waitCtx, waitCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer waitCancel()
 
-	MessageID string
-	Message   *discord.Message
+	for {
+		// Gateway が存在し、ステータスが StatusReady (接続完了) になっているかチェック
+		if conn.Gateway() != nil && conn.Gateway().Status() == voice.StatusReady {
+			break
+		}
 
-	FormatText string
+		select {
+		case <-waitCtx.Done():
+			return fmt.Errorf("voice connection timeout: gateway is not readyaaaaaaa")
+		default:
+			time.Sleep(50 * time.Millisecond) // 50msごとにチェック
+		}
+	}
+
+	// 1. 発言中状態にする
+	if err := conn.SetSpeaking(ctx, voice.SpeakingFlagMicrophone); err != nil {
+		return fmt.Errorf("failed to set speaking flag: %w", err)
+	}
+	defer func() {
+		// 再生終了時に発言フラグを下げる
+		_ = conn.SetSpeaking(ctx, voice.SpeakingFlagNone)
+	}()
+
+	// 2. FFmpeg を起動して DCA（Discord 互換 Opus）フォーマットに変換する
+	// 以前の aresample フィルタをベースに調整します
+	filter := fmt.Sprintf("aresample=48000,asetrate=48000*%.2f/100,atempo=100/%.2f*%.2f,volume=%.2f", pitch*100, pitch*100, speed, volume)
+
+	cmd := exec.Command("ffmpeg",
+		"-i", filename, // 入力（HTTP の URL も直接指定可能）
+		"-af", filter, // 速度・ピッチ・音量のフィルタ
+		"-f", "opus", // 出力は opus
+		"-ar", "48000", // 48000Hz (Discord仕様)
+		"-ac", "2", // ステレオ 2ch (Discord仕様)
+		"-b:a", "96k", // ビットレート
+		"-application", "audio",
+		"-frame_duration", "20", // 20ms フレーム
+		"-f", "data", // 各パケットの前にサイズ(4バイト little-endian)を付加する
+		"pipe:1", // 標準出力へパイプ
+	)
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start ffmpeg: %w", err)
+	}
+	defer func() {
+		// プロセスを終了させる
+		_ = stdout.Close()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+	}()
+
+	// 3. disgo の NewOpusReader を使って、FFmpegの標準出力を Opus フレームプロバイダーに変換
+	// (NewOpusReader は 4バイトの little-endian サイズヘッダを期待して動作します)
+	provider := voice.NewOpusReader(stdout)
+
+	// 4. コネクションにプロバイダーを設定して再生を開始
+	conn.SetOpusFrameProvider(provider)
+
+	// 5. 再生が終わる、または context がキャンセルされるまで待機する
+	// ※SetOpusFrameProvider はバックグラウンドスレッドで自動で 20ms タイマーを回してくれるため、
+	// 呼び出し元のこのスレッドは、FFmpeg 側が EOF になるまでブロックして待つだけでOKです。
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			// 外部から中断された場合
+			conn.SetOpusFrameProvider(nil)
+			return ctx.Err()
+		case <-ticker.C:
+		}
+
+		// FFmpegが終了して io.EOF を検知したかどうかを、プロバイダー経由で監視（またはcmd.Wait）
+		// ここでは、FFmpeg プロセスの終了ステータスで監視します
+		state, err := cmd.Process.Wait()
+		if err == nil || state != nil {
+			break // 再生終了
+		}
+	}
+
+	// プロバイダーを外してクリーンアップ
+	conn.SetOpusFrameProvider(nil)
+	return nil
 }
